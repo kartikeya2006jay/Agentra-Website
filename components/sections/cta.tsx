@@ -413,14 +413,6 @@ export default function CTA() {
     return (
       <>
         <Reveal>
-          <div className="mb-8">
-            <span className="inline-block px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-gray-400 mb-6">
-              Get Started
-            </span>
-          </div>
-        </Reveal>
-
-        <Reveal>
           <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6">
             <span className="block">
               Ready to
@@ -442,23 +434,6 @@ export default function CTA() {
             From concept to launch, we partner with ambitious brands to create 
             exceptional digital experiences that drive results and inspire.
           </p>
-        </Reveal>
-
-        <Reveal delay={0.2}>
-          <div className="mt-12 flex flex-wrap justify-center gap-8 mb-12">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-white mb-2">40+</div>
-              <div className="text-sm text-gray-400">Projects Delivered</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-white mb-2">98%</div>
-              <div className="text-sm text-gray-400">Client Satisfaction</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-white mb-2">24/7</div>
-              <div className="text-sm text-gray-400">Support</div>
-            </div>
-          </div>
         </Reveal>
 
         <Reveal delay={0.3}>
