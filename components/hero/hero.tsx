@@ -21,7 +21,7 @@ export default function Hero() {
   const bgRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [particles, setParticles] = useState<DustParticle[]>([])
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | null>(null)
   const mouseX = useRef(0)
   const mouseY = useRef(0)
 

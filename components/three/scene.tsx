@@ -2,7 +2,8 @@
 
 import { Canvas } from "@react-three/fiber"
 import { Suspense } from "react"
-import FloatingObjects from "./floating-objects"
+import FloatingObjects from "@/components/three/floating-objects"
+import Lights from "@/components/three/lights"
 
 export default function Scene() {
   if (typeof window === "undefined") return null
@@ -19,7 +20,7 @@ export default function Scene() {
       className="absolute inset-0"
     >
       <Suspense fallback={null}>
-        <ambientLight intensity={1} />
+        <Lights />
         <FloatingObjects />
       </Suspense>
     </Canvas>

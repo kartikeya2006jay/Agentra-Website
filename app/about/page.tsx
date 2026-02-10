@@ -1,10 +1,28 @@
-export default function AboutPage() {
+"use client"
+
+import { Canvas } from "@react-three/fiber"
+import { Suspense } from "react"
+import FloatingObjects from "@/components/three/floating-objects"
+import Lights from "@/components/three/lights"
+
+export default function Scene() {
+  if (typeof window === "undefined") return null
+
   return (
-    <main className="mx-auto max-w-5xl px-6 py-32">
-      <h1 className="text-4xl font-semibold">About Agentra</h1>
-      <p className="mt-4 text-gray-400">
-        We build premium, cinematic digital experiences.
-      </p>
-    </main>
+    <Canvas
+      dpr={1}
+      frameloop="demand"
+      gl={{
+        antialias: false,
+        powerPreference: "low-power",
+      }}
+      camera={{ position: [0, 0, 5], fov: 55 }}
+      className="absolute inset-0"
+    >
+      <Suspense fallback={null}>
+        <Lights />
+        <FloatingObjects />
+      </Suspense>
+    </Canvas>
   )
 }
