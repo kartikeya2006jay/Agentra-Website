@@ -1,5 +1,5 @@
 "use client"
-import AgentraDustHover from "./agentra-dust-hover"
+
 import { useEffect, useRef, useState } from "react"
 import HeroText from "./hero-text"
 
@@ -12,38 +12,51 @@ interface DustParticle {
   speedY: number
   opacity: number
   blur: number
-  color: string
+  originalX: number
+  originalY: number
+  stuck: boolean
 }
 
 export default function Hero() {
   const bgRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [particles, setParticles] = useState<DustParticle[]>([])
   const animationRef = useRef<number>()
+  const mouseX = useRef(0)
+  const mouseY = useRef(0)
 
   useEffect(() => {
-    const particleCount = 200
+    const particleCount = 500
     const initialParticles: DustParticle[] = []
     
-    const dustColors = [
-      'rgb(180,160,140)',
-      'rgb(190,170,150)',
-      'rgb(200,180,160)',
-      'rgb(170,150,130)',
-      'rgb(160,140,120)'
+    const letterPositions = [
+      { x: 10, y: 50, width: 12, height: 40 },
+      { x: 22, y: 50, width: 12, height: 40 },
+      { x: 34, y: 50, width: 10, height: 40 },
+      { x: 44, y: 50, width: 12, height: 40 },
+      { x: 56, y: 50, width: 10, height: 40 },
+      { x: 66, y: 50, width: 12, height: 40 },
+      { x: 78, y: 50, width: 12, height: 40 },
     ]
     
     for (let i = 0; i < particleCount; i++) {
-      const color = dustColors[Math.floor(Math.random() * dustColors.length)]
+      const letterIndex = Math.floor(Math.random() * 7)
+      const letter = letterPositions[letterIndex]
+      const baseX = letter.x + Math.random() * letter.width
+      const baseY = letter.y + (Math.random() - 0.5) * letter.height
+      
       initialParticles.push({
         id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 6 + 1,
-        speedX: (Math.random() - 0.5) * 0.08,
-        speedY: (Math.random() - 0.5) * 0.08 - 0.02,
-        opacity: Math.random() * 0.25 + 0.05,
-        blur: Math.random() * 3 + 0.5,
-        color: color
+        x: baseX,
+        y: baseY,
+        size: Math.random() * 2.5 + 0.5,
+        speedX: 0,
+        speedY: 0,
+        opacity: Math.random() * 0.15 + 0.1,
+        blur: Math.random() * 2 + 0.5,
+        originalX: baseX,
+        originalY: baseY,
+        stuck: Math.random() > 0.3
       })
     }
     
@@ -51,28 +64,73 @@ export default function Hero() {
 
     const animateParticles = () => {
       setParticles(prev => prev.map(p => {
-        let newX = p.x + p.speedX
-        let newY = p.y + p.speedY
-        
-        if (newX > 110) newX = -10
-        if (newX < -10) newX = 110
-        if (newY > 110) {
-          newY = -10
-          newX = Math.random() * 100
+        if (p.stuck && Math.random() > 0.995) {
+          p.stuck = false
         }
-        if (newY < -10) newY = 110
 
-        const sway = Math.sin(Date.now() * 0.001 + p.id) * 0.02
-        const float = Math.sin(Date.now() * 0.0005 + p.id) * 0.01
+        if (p.stuck) {
+          return {
+            ...p,
+            opacity: 0.15 + Math.sin(Date.now() * 0.002 + p.id) * 0.05,
+            size: p.size + Math.sin(Date.now() * 0.001 + p.id) * 0.1
+          }
+        }
+
+        const dx = p.originalX - p.x
+        const dy = p.originalY - p.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        
+        const returnForce = 0.15
+        const mouseDistanceX = p.x - mouseX.current * 100
+        const mouseDistanceY = p.y - mouseY.current * 100
+        const mouseDist = Math.sqrt(mouseDistanceX * mouseDistanceX + mouseDistanceY * mouseDistanceY)
+        
+        let forceX = 0
+        let forceY = 0
+        
+        if (mouseDist < 20) {
+          const repelForce = (20 - mouseDist) * 0.15
+          forceX = (mouseDistanceX / mouseDist) * repelForce
+          forceY = (mouseDistanceY / mouseDist) * repelForce
+        }
+        
+        const newSpeedX = p.speedX * 0.88 + dx * returnForce * 0.003 + forceX + (Math.random() - 0.5) * 0.08
+        const newSpeedY = p.speedY * 0.88 + dy * returnForce * 0.003 + forceY + (Math.random() - 0.5) * 0.08
+        
+        let newX = p.x + newSpeedX
+        let newY = p.y + newSpeedY
+
+        const distanceFromOriginal = Math.sqrt(
+          Math.pow(newX - p.originalX, 2) + 
+          Math.pow(newY - p.originalY, 2)
+        )
+
+        const opacity = Math.max(0.05, 0.2 - distanceFromOriginal * 0.002)
+
+        if (distanceFromOriginal < 3 && Math.abs(newSpeedX) < 0.1 && Math.abs(newSpeedY) < 0.1 && Math.random() > 0.99) {
+          return {
+            ...p,
+            x: newX,
+            y: newY,
+            speedX: 0,
+            speedY: 0,
+            opacity: 0.15,
+            stuck: true
+          }
+        }
+
+        const driftX = Math.sin(Date.now() * 0.0003 + p.id) * 0.05
+        const driftY = Math.cos(Date.now() * 0.0004 + p.id * 0.7) * 0.05
 
         return {
           ...p,
-          x: newX + sway,
-          y: newY + float,
-          speedX: p.speedX + (Math.random() - 0.5) * 0.005,
-          speedY: Math.max(-0.1, Math.min(0.02, p.speedY + (Math.random() - 0.5) * 0.002)),
-          opacity: Math.max(0.05, Math.min(0.3, p.opacity + (Math.random() - 0.5) * 0.01)),
-          size: p.size + Math.sin(Date.now() * 0.002 + p.id) * 0.3
+          x: newX + driftX,
+          y: newY + driftY,
+          speedX: newSpeedX,
+          speedY: newSpeedY,
+          opacity: opacity,
+          size: p.size + Math.sin(Date.now() * 0.002 + p.id) * 0.1,
+          blur: Math.max(0.5, Math.min(3, p.blur + (Math.random() - 0.5) * 0.1))
         }
       }))
       animationRef.current = requestAnimationFrame(animateParticles)
@@ -89,22 +147,30 @@ export default function Hero() {
 
   useEffect(() => {
     const el = bgRef.current!
+    
     function onMove(e: MouseEvent) {
       const x = (e.clientX / window.innerWidth - 0.5) * 12
       const y = (e.clientY / window.innerHeight - 0.5) * 12
       el.style.transform = `translate(${x}px, ${y}px) rotate(-8deg)`
+      
+      mouseX.current = e.clientX / window.innerWidth
+      mouseY.current = e.clientY / window.innerHeight
     }
+    
     window.addEventListener("mousemove", onMove)
     return () => window.removeEventListener("mousemove", onMove)
   }, [])
 
   return (
-    <section className="relative min-h-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 overflow-hidden flex items-center">
-      <div className="absolute inset-0 overflow-hidden">
+    <section className="relative min-h-screen bg-black overflow-hidden flex items-center">
+      <div 
+        ref={containerRef}
+        className="absolute inset-0 overflow-hidden pointer-events-none z-0"
+      >
         {particles.map((particle) => (
           <div
             key={particle.id}
-            className="absolute"
+            className="absolute transition-opacity duration-500"
             style={{
               left: `${particle.x}%`,
               top: `${particle.y}%`,
@@ -112,19 +178,18 @@ export default function Hero() {
               height: `${particle.size}px`,
               opacity: particle.opacity,
               filter: `blur(${particle.blur}px)`,
-              background: `radial-gradient(circle, ${particle.color} 0%, ${particle.color.replace(')', ',0.3)').replace('rgb', 'rgba')} 50%, transparent 100%)`,
+              background: particle.stuck 
+                ? 'radial-gradient(circle, rgba(220,220,220,0.9) 0%, rgba(180,180,180,0.5) 70%, transparent 100%)'
+                : 'radial-gradient(circle, rgba(200,200,200,0.7) 0%, rgba(160,160,160,0.3) 60%, transparent 100%)',
               borderRadius: '50%',
-              boxShadow: `0 0 ${particle.size * 2}px ${particle.size * 0.5}px ${particle.color.replace(')', ',0.4)').replace('rgb', 'rgba')}`,
-              transform: `translateZ(0) scale(${1 + Math.sin(Date.now() * 0.001 + particle.id) * 0.1})`,
+              boxShadow: particle.stuck 
+                ? `0 0 ${particle.size * 2}px ${particle.size * 0.5}px rgba(220,220,220,0.4)`
+                : `0 0 ${particle.size * 1.5}px ${particle.size * 0.3}px rgba(200,200,200,0.25)`,
               willChange: 'transform, opacity, left, top',
             }}
           />
         ))}
       </div>
-
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/30" />
-      
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(120,100,80,0.1)_0%,transparent_70%)]" />
 
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
         <div

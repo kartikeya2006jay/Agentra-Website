@@ -15,6 +15,7 @@ export default function AgentraDust() {
     }
 
     resize()
+    window.addEventListener("resize", resize)
 
     const w = canvas.width
     const h = canvas.height
@@ -27,24 +28,25 @@ export default function AgentraDust() {
       oy: number
       vx: number
       vy: number
+      size: number
+      opacity: number
+      stuck: boolean
     }[] = []
 
-    // IMPORTANT: use system font to avoid font-load race
     ctx.clearRect(0, 0, w, h)
-    ctx.fillStyle = "white"
+    ctx.fillStyle = "rgba(160,160,160,0.9)"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
-    ctx.font = "900 220px Arial"
-
+    ctx.font = "900 320px Arial, sans-serif"
     ctx.fillText(text, w / 2, h / 2)
 
     const imageData = ctx.getImageData(0, 0, w, h).data
     ctx.clearRect(0, 0, w, h)
 
-    for (let y = 0; y < h; y += 5) {
-      for (let x = 0; x < w; x += 5) {
+    for (let y = 0; y < h; y += 4) {
+      for (let x = 0; x < w; x += 4) {
         const i = (y * w + x) * 4
-        if (imageData[i + 3] > 150) {
+        if (imageData[i + 3] > 120) {
           particles.push({
             x,
             y,
@@ -52,6 +54,9 @@ export default function AgentraDust() {
             oy: y,
             vx: 0,
             vy: 0,
+            size: Math.random() * 2 + 0.5,
+            opacity: Math.random() * 0.15 + 0.1,
+            stuck: Math.random() > 0.3
           })
         }
       }
@@ -66,29 +71,56 @@ export default function AgentraDust() {
     }
 
     window.addEventListener("mousemove", onMove)
-    window.addEventListener("resize", resize)
 
     function animate() {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = "rgba(255,255,255,0.06)"
+      ctx.fillStyle = "rgba(200,200,200,0.12)"
 
       for (const p of particles) {
+        if (p.stuck && Math.random() > 0.997) {
+          p.stuck = false
+        }
+
+        if (p.stuck) {
+          ctx.fillStyle = `rgba(220,220,220,${0.15 + Math.sin(Date.now() * 0.002) * 0.05})`
+          ctx.fillRect(p.x, p.y, p.size, p.size)
+          continue
+        }
+
         const dx = p.x - mx
         const dy = p.y - my
         const dist = Math.sqrt(dx * dx + dy * dy)
 
-        if (dist < 120) {
-          p.vx += dx * 0.02
-          p.vy += dy * 0.02
+        if (dist < 150) {
+          const force = (150 - dist) * 0.0005
+          p.vx += dx * force
+          p.vy += dy * force
         }
 
-        p.vx *= 0.9
-        p.vy *= 0.9
+        p.vx *= 0.92
+        p.vy *= 0.92
 
-        p.x += p.vx + (p.ox - p.x) * 0.08
-        p.y += p.vy + (p.oy - p.y) * 0.08
+        const returnX = (p.ox - p.x) * 0.02
+        const returnY = (p.oy - p.y) * 0.02
 
-        ctx.fillRect(p.x, p.y, 1.4, 1.4)
+        p.x += p.vx + returnX + (Math.random() - 0.5) * 0.3
+        p.y += p.vy + returnY + (Math.random() - 0.5) * 0.3
+
+        const distanceFromOriginal = Math.sqrt(
+          Math.pow(p.x - p.ox, 2) + 
+          Math.pow(p.y - p.oy, 2)
+        )
+
+        const opacity = Math.max(0.05, 0.15 - distanceFromOriginal * 0.0003)
+        
+        if (distanceFromOriginal < 10 && Math.abs(p.vx) < 0.5 && Math.abs(p.vy) < 0.5 && Math.random() > 0.998) {
+          p.stuck = true
+          p.vx = 0
+          p.vy = 0
+        }
+
+        ctx.fillStyle = `rgba(200,200,200,${opacity})`
+        ctx.fillRect(p.x, p.y, p.size, p.size)
       }
 
       requestAnimationFrame(animate)
@@ -105,7 +137,7 @@ export default function AgentraDust() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none opacity-30"
+      className="absolute inset-0 pointer-events-none opacity-20"
     />
   )
 }
