@@ -1,516 +1,543 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Reveal from "@/components/animations/reveal"
-import Magnetic from "@/components/animations/magnetic"
+import emailjs from "@emailjs/browser"
 import Button from "@/components/ui/button"
+import Reveal from "@/components/animations/reveal"
 
-interface TimeSlot {
-  id: number
+interface MeetingSchedule {
+  date: string
   time: string
-  available: boolean
   timezone: "IST" | "GMT"
+  timestamp: number
 }
 
-interface CalendarDay {
-  date: number
-  month: number
-  day: number
-  available: boolean
-  currentMonth: boolean
-}
-
-interface ScheduleData {
-  date: Date | null
-  time: string | null
-  timezone: "IST" | "GMT"
-}
-
-export default function CTA() {
+export default function ContactForm() {
   const router = useRouter()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [showSchedule, setShowSchedule] = useState(false)
-  const [scheduleData, setScheduleData] = useState<ScheduleData>({
-    date: null,
-    time: null,
-    timezone: "IST"
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+  const [meetingSchedule, setMeetingSchedule] = useState<MeetingSchedule | null>(null)
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    projectDetails: "",
+    phone: "",
+    company: ""
   })
+  const [isFormValid, setIsFormValid] = useState(false)
 
-  // Generate calendar for February 2026
-  const generateCalendar = (): CalendarDay[] => {
-    const days: CalendarDay[] = []
-    const year = 2026
-    const month = 1 // February (0-indexed)
-    
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    const startDay = firstDay.getDay()
-    
-    // Previous month days
-    const prevMonthLastDay = new Date(year, month, 0).getDate()
-    for (let i = startDay - 1; i >= 0; i--) {
-      days.push({
-        date: prevMonthLastDay - i,
-        month: month - 1,
-        day: (startDay - i - 1 + 7) % 7,
-        available: false,
-        currentMonth: false
-      })
-    }
-    
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-      const currentDate = new Date(year, month, i)
-      const dayOfWeek = currentDate.getDay()
-      const available = dayOfWeek >= 1 && dayOfWeek <= 5
-      
-      days.push({
-        date: i,
-        month: month,
-        day: dayOfWeek,
-        available,
-        currentMonth: true
-      })
-    }
-    
-    // Next month days
-    const totalCells = Math.ceil(days.length / 7) * 7
-    let nextMonthDay = 1
-    while (days.length < totalCells) {
-      days.push({
-        date: nextMonthDay,
-        month: month + 1,
-        day: (days.length) % 7,
-        available: false,
-        currentMonth: false
-      })
-      nextMonthDay++
-    }
-    
-    return days
-  }
-
-  // Time slots for scheduling
-  const timeSlots: TimeSlot[] = [
-    { id: 1, time: "09:00 AM", available: true, timezone: "IST" },
-    { id: 2, time: "10:00 AM", available: true, timezone: "IST" },
-    { id: 3, time: "11:00 AM", available: true, timezone: "IST" },
-    { id: 4, time: "02:00 PM", available: true, timezone: "IST" },
-    { id: 5, time: "03:00 PM", available: true, timezone: "IST" },
-    { id: 6, time: "04:00 PM", available: true, timezone: "IST" },
-    { id: 7, time: "06:00 AM", available: true, timezone: "GMT" },
-    { id: 8, time: "07:00 AM", available: true, timezone: "GMT" },
-    { id: 9, time: "08:00 AM", available: true, timezone: "GMT" },
-    { id: 10, time: "10:30 AM", available: true, timezone: "GMT" },
-    { id: 11, time: "11:30 AM", available: true, timezone: "GMT" },
-    { id: 12, time: "01:00 PM", available: true, timezone: "GMT" },
-  ]
+  // Check form validity
+  useEffect(() => {
+    const isValid = 
+      formData.name.trim() !== "" && 
+      formData.email.trim() !== "" && 
+      formData.projectDetails.trim() !== "" &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+    setIsFormValid(isValid)
+  }, [formData])
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth
-      canvas.height = canvas.offsetHeight
-    }
-
-    resizeCanvas()
-    window.addEventListener('resize', resizeCanvas)
-
-    const particles: Array<{
-      x: number
-      y: number
-      size: number
-      speedX: number
-      speedY: number
-      color: string
-    }> = []
-
-    for (let i = 0; i < 50; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 2 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.3,
-        speedY: (Math.random() - 0.5) * 0.3,
-        color: `rgba(59, 130, 246, ${Math.random() * 0.2 + 0.1})`
-      })
-    }
-
-    let animationId: number
-
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-
-          if (distance < 100) {
-            ctx.beginPath()
-            ctx.strokeStyle = `rgba(59, 130, 246, ${0.1 * (1 - distance / 100)})`
-            ctx.lineWidth = 0.5
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
-          }
-        }
+    // Get meeting schedule from localStorage
+    const savedSchedule = localStorage.getItem('meetingSchedule')
+    if (savedSchedule) {
+      try {
+        const schedule = JSON.parse(savedSchedule) as MeetingSchedule
+        setMeetingSchedule(schedule)
+      } catch (error) {
+        console.error('Error parsing schedule:', error)
       }
-
-      particles.forEach(particle => {
-        ctx.beginPath()
-        ctx.fillStyle = particle.color
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
-        ctx.fill()
-
-        particle.x += particle.speedX
-        particle.y += particle.speedY
-
-        if (particle.x <= 0 || particle.x >= canvas.width) particle.speedX *= -1
-        if (particle.y <= 0 || particle.y >= canvas.height) particle.speedY *= -1
-
-        particle.x = Math.max(0, Math.min(canvas.width, particle.x))
-        particle.y = Math.max(0, Math.min(canvas.height, particle.y))
-      })
-
-      animationId = requestAnimationFrame(animate)
-    }
-
-    animate()
-
-    return () => {
-      window.removeEventListener('resize', resizeCanvas)
-      cancelAnimationFrame(animationId)
     }
   }, [])
 
-  const handleScheduleCall = () => {
-    setShowSchedule(true)
-  }
+  useEffect(() => {
+    // Initialize EmailJS
+    emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "QJOob4ebC-RgwOWPO")
+  }, [])
 
-  const handleDateSelect = (day: CalendarDay) => {
-    if (day.available && day.currentMonth) {
-      const selected = new Date(2026, day.month, day.date)
-      setScheduleData(prev => ({
-        ...prev,
-        date: selected,
-        time: null // Reset time when date changes
-      }))
-    }
-  }
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!isFormValid) return
+    
+    setLoading(true)
 
-  const handleTimeSelect = (time: string, timezone: "IST" | "GMT") => {
-    if (scheduleData.date) {
-      setScheduleData(prev => ({
-        ...prev,
-        time,
-        timezone
-      }))
-    }
-  }
-
-  const handleProceedToContact = () => {
-    if (scheduleData.date && scheduleData.time) {
-      // Store schedule data in localStorage for contact page
-      const scheduleInfo = {
-        date: scheduleData.date.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        }),
-        time: scheduleData.time,
-        timezone: scheduleData.timezone,
-        timestamp: scheduleData.date.getTime()
+    try {
+      // Prepare template parameters - Updated with proper meeting date/time variables
+      const templateParams = {
+        from_name: formData.name,
+        from_email: formData.email,
+        phone: formData.phone || "Not provided",
+        company: formData.company || "Not provided",
+        project_details: formData.projectDetails,
+        
+        // CRITICAL: Add these meeting variables - they must match your EmailJS template
+        meeting_date: meetingSchedule?.date || "Not specified",
+        meeting_time: meetingSchedule?.time 
+          ? `${meetingSchedule.time} (${meetingSchedule.timezone})`
+          : "Not specified",
+        meeting_duration: "2 hours",
+        
+        // Email details
+        subject: `New Meeting Scheduled: ${formData.name} from ${formData.company || "Individual"}`,
+        timestamp: new Date().toISOString(),
+        reply_to: formData.email
       }
+
+      // Debug: Log what we're sending
+      console.log('Sending email with params:', templateParams)
+      console.log('Meeting schedule data:', meetingSchedule)
+
+      // Send email using EmailJS
+      const result = await emailjs.send(
+        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_zhbg7ua",
+        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || "template_pdhyb9o",
+        templateParams
+      )
+
+      console.log('Email sent successfully:', result.text)
       
-      localStorage.setItem('meetingSchedule', JSON.stringify(scheduleInfo))
+      // Clear localStorage
+      localStorage.removeItem('meetingSchedule')
       
-      // Navigate to contact page
-      router.push('/contact')
+      setDone(true)
+      
+      // Reset form
+      setTimeout(() => {
+        setFormData({
+          name: "",
+          email: "",
+          projectDetails: "",
+          phone: "",
+          company: ""
+        })
+        router.push('/') // Redirect to home after success
+      }, 3000)
+
+    } catch (error) {
+      console.error('Failed to send email:', error)
+      alert("Failed to send message. Please try again or contact us directly.")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const renderCalendar = () => {
-    const calendarDays = generateCalendar()
-    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    
-    return (
-      <div className="mb-8">
-        <h3 className="text-2xl font-bold text-white mb-6">Select Date - February 2026</h3>
-        <div className="grid grid-cols-7 gap-2 mb-4">
-          {daysOfWeek.map(day => (
-            <div key={day} className="text-center text-sm font-medium text-gray-400 py-2">
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {calendarDays.map((day, index) => {
-            const isSelected = scheduleData.date && 
-              scheduleData.date.getDate() === day.date && 
-              scheduleData.date.getMonth() === day.month
-            const isToday = day.date === 15 && day.month === 1
-            
-            return (
-              <button
-                key={index}
-                onClick={() => handleDateSelect(day)}
-                disabled={!day.available || !day.currentMonth}
-                className={`
-                  relative h-12 rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-300
-                  ${!day.currentMonth ? 'text-gray-600 cursor-default' : ''}
-                  ${!day.available ? 'text-gray-500 cursor-not-allowed opacity-50' : ''}
-                  ${day.currentMonth && day.available ? 'hover:bg-white/10 text-white' : ''}
-                  ${isSelected ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white scale-105' : ''}
-                  ${isToday ? 'ring-2 ring-blue-400' : ''}
-                `}
-              >
-                {day.date}
-                {isToday && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    )
+  const handleBackToSchedule = () => {
+    router.back()
   }
 
-  const renderTimeSlots = () => {
-    const filteredSlots = timeSlots.filter(slot => slot.timezone === scheduleData.timezone)
-    
+  if (done) {
     return (
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-white">Select Time Slot (2-hour duration)</h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setScheduleData(prev => ({ ...prev, timezone: "IST", time: null }))}
-              className={`px-4 py-2 rounded-lg transition-all duration-300 ${
-                scheduleData.timezone === "IST" 
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              IST (India)
-            </button>
-            <button
-              onClick={() => setScheduleData(prev => ({ ...prev, timezone: "GMT", time: null }))}
-              className={`px-4 py-2 rounded-lg transition-all duration-300 ${
-                scheduleData.timezone === "GMT" 
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              GMT (International)
-            </button>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {filteredSlots.map(slot => (
-            <button
-              key={slot.id}
-              onClick={() => handleTimeSelect(slot.time, slot.timezone)}
-              disabled={!scheduleData.date}
-              className={`
-                relative px-4 py-3 rounded-xl text-center transition-all duration-300
-                ${!scheduleData.date ? 'opacity-50 cursor-not-allowed' : ''}
-                ${scheduleData.time === slot.time ? 
-                  'bg-gradient-to-r from-blue-500 to-cyan-500 text-white scale-105' : 
-                  'bg-white/5 hover:bg-white/10 text-gray-300'
-                }
-              `}
-            >
-              {slot.time}
-              <div className="text-xs mt-1 opacity-70">
-                {slot.timezone}
-              </div>
-              {scheduleData.time === slot.time && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-white animate-ping" />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  const renderScheduleInterface = () => {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h3 className="text-3xl font-bold text-white">Schedule a Discovery Call</h3>
-          <button
-            onClick={() => {
-              setShowSchedule(false)
-              setScheduleData({ date: null, time: null, timezone: "IST" })
-            }}
-            className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 transition-colors duration-300"
-          >
-            ← Back
-          </button>
-        </div>
-        
-        {renderCalendar()}
-        {renderTimeSlots()}
-        
-        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 border border-white/10">
-          <h4 className="text-xl font-semibold text-white mb-4">Meeting Summary</h4>
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <div className="text-sm text-gray-400 mb-2">Selected Date</div>
-              <div className="text-lg text-white">
-                {scheduleData.date ? scheduleData.date.toDateString() : "Not selected"}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400 mb-2">Selected Time</div>
-              <div className="text-lg text-white">
-                {scheduleData.time ? `${scheduleData.time} (${scheduleData.timezone})` : "Not selected"}
-              </div>
-            </div>
-          </div>
+      <div className="relative min-h-[80vh] flex items-center justify-center bg-black">
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Animated background */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent animate-pulse" />
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500/50 to-transparent animate-pulse" />
           
-          <div className="pt-6 border-t border-white/10">
-            <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Duration: 2 hours
-            </div>
-            <Button
-              onClick={handleProceedToContact}
-              disabled={!scheduleData.date || !scheduleData.time}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {scheduleData.date && scheduleData.time ? "Proceed to Contact Form" : "Select Date & Time"}
-            </Button>
-            <p className="text-sm text-gray-400 mt-4 text-center">
-              You'll fill in your details on the next page
-            </p>
-          </div>
+          {/* Floating particles */}
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-[1px] h-[1px] bg-white rounded-full animate-float"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${3 + Math.random() * 3}s`,
+                opacity: Math.random() * 0.3 + 0.1,
+              }}
+            />
+          ))}
         </div>
-      </div>
-    )
-  }
 
-  const renderMainContent = () => {
-    if (showSchedule) {
-      return renderScheduleInterface()
-    }
-
-    return (
-      <>
         <Reveal>
-          <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6">
-            <span className="block">
-              Ready to
-              <span className="relative inline-block mx-3">
-                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent animate-gradient-text">
-                  elevate
-                </span>
-                <div className="absolute -bottom-2 left-0 w-full h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-full animate-pulse" />
-              </span>
-            </span>
-            <span className="block text-gray-300 mt-2">
-              your digital presence?
-            </span>
-          </h2>
-        </Reveal>
-
-        <Reveal delay={0.15}>
-          <p className="mx-auto mt-8 max-w-2xl text-xl text-gray-400 leading-relaxed">
-            From concept to launch, we partner with ambitious brands to create 
-            exceptional digital experiences that drive results and inspire.
-          </p>
-        </Reveal>
-
-        <Reveal delay={0.3}>
-          <div className="mt-12">
-            <Magnetic>
-              <Button 
-                onClick={handleScheduleCall}
-                className="relative group px-12 py-6 text-lg font-semibold rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 text-white hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 transform hover:scale-105"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
-                <span className="relative flex items-center gap-3">
-                  <svg 
-                    className="w-6 h-6 transform group-hover:rotate-12 transition-transform duration-300" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Schedule a Discovery Call
-                </span>
-              </Button>
-            </Magnetic>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.4}>
-          <div className="mt-16 pt-8 border-t border-white/10">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-8">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm text-gray-400">Available for new projects</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-sm text-gray-400">Response within 24 hours</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                <span className="text-sm text-gray-400">Free 2-hour consultation</span>
+          <div className="relative max-w-2xl mx-auto text-center px-6">
+            <div className="relative inline-block mb-8">
+              <div className="absolute -inset-4 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 opacity-20 blur-xl" />
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-white transform scale-0 animate-scale-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               </div>
             </div>
+
+            <h3 className="text-4xl font-bold text-white mb-6 animate-fade-in">
+              Meeting Scheduled Successfully!
+            </h3>
+            <p className="text-lg text-gray-400 mb-8 animate-slide-up delay-200">
+              We've received your details and will send a confirmation email shortly.
+            </p>
+            
+            {meetingSchedule && (
+              <div className="bg-white/5 rounded-2xl p-8 mb-8 backdrop-blur-sm border border-white/10 animate-slide-up delay-300">
+                <h4 className="text-xl font-semibold text-white mb-6">Meeting Summary</h4>
+                <div className="space-y-4 text-gray-300">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Date:</span>
+                    <span className="text-white font-medium">{meetingSchedule.date}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Time:</span>
+                    <span className="text-white font-medium">{meetingSchedule.time} ({meetingSchedule.timezone})</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Duration:</span>
+                    <span className="text-white font-medium">2 hours</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={() => router.push('/')}
+              className="group relative px-8 py-4 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all duration-300 animate-fade-in delay-500"
+            >
+              <span className="relative flex items-center gap-3">
+                <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Return to Homepage
+              </span>
+            </button>
           </div>
         </Reveal>
-      </>
+      </div>
     )
   }
 
   return (
-    <section className="relative bg-black py-40 overflow-hidden">
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none"
-      />
-
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-500/10 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-purple-500/10 via-transparent to-transparent" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-3xl" />
+    <div className="relative min-h-screen bg-black py-20">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        {/* Gradient orbs */}
+        <div className="absolute top-1/4 -left-40 w-96 h-96 bg-gradient-to-r from-blue-500/5 to-cyan-500/5 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-1/4 -right-40 w-96 h-96 bg-gradient-to-r from-purple-500/5 to-pink-500/5 rounded-full blur-3xl animate-pulse-slow delay-1000" />
+        
+        {/* Grid pattern */}
+        <div className="absolute inset-0 opacity-[0.02] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:60px_60px]" />
+        
+        {/* Floating particles */}
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-[1px] h-[1px] bg-white rounded-full animate-float"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 2}s`,
+              animationDuration: `${3 + Math.random() * 3}s`,
+              opacity: Math.random() * 0.3 + 0.1,
+            }}
+          />
+        ))}
       </div>
 
-      <div className="relative mx-auto max-w-5xl px-6 text-center">
-        {renderMainContent()}
+      <div className="relative max-w-4xl mx-auto px-6">
+        {/* Header */}
+        <Reveal>
+          <div className="mb-12">
+            <button
+              onClick={handleBackToSchedule}
+              className="group inline-flex items-center gap-3 text-gray-400 hover:text-white mb-8 transition-all duration-300"
+            >
+              <div className="relative">
+                <div className="absolute -inset-2 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <svg className="relative w-5 h-5 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </div>
+              <span>Back to Schedule</span>
+            </button>
+            
+            <div className="mb-8">
+              <span className="inline-block px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-gray-400 mb-4">
+                Final Step
+              </span>
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                Complete Your
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400">
+                  Meeting Request
+                </span>
+              </h2>
+              <p className="text-lg text-gray-400 max-w-2xl">
+                Please fill in your details to confirm the meeting schedule.
+              </p>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* Meeting Summary */}
+        {meetingSchedule && (
+          <Reveal delay={0.1}>
+            <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 rounded-2xl p-8 mb-12 border border-white/10 backdrop-blur-sm transform transition-all duration-500 hover:scale-[1.01]">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-white">Selected Meeting Time</h3>
+              </div>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="group">
+                  <div className="text-sm text-gray-400 mb-2">Date</div>
+                  <div className="text-lg font-medium text-white transform transition-transform duration-300 group-hover:translate-x-1">
+                    {meetingSchedule.date}
+                  </div>
+                </div>
+                <div className="group">
+                  <div className="text-sm text-gray-400 mb-2">Time</div>
+                  <div className="text-lg font-medium text-white transform transition-transform duration-300 group-hover:translate-x-1">
+                    {meetingSchedule.time} ({meetingSchedule.timezone})
+                  </div>
+                </div>
+                <div className="group">
+                  <div className="text-sm text-gray-400 mb-2">Duration</div>
+                  <div className="text-lg font-medium text-white transform transition-transform duration-300 group-hover:translate-x-1">
+                    2 hours
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span>Your selected time slot is reserved for 24 hours</span>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        )}
+
+        {/* Contact Form */}
+        <Reveal delay={0.2}>
+          <div className="bg-white/[0.02] rounded-2xl border border-white/10 p-8 backdrop-blur-sm">
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold text-white mb-3">Your Information</h3>
+              <p className="text-gray-400">Please fill in all required fields to proceed.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Name & Email */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="relative w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-all duration-300"
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="relative w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-all duration-300"
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Phone & Company */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-blue-500/20 to-cyan-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      className="relative w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-all duration-300"
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+                </div>
+
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
+                    Company / Organization
+                  </label>
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                    <input
+                      type="text"
+                      value={formData.company}
+                      onChange={(e) => setFormData({...formData, company: e.target.value})}
+                      className="relative w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-all duration-300"
+                      placeholder="Your Company"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Project Details */}
+              <div className="group">
+                <label className="block text-sm font-medium text-gray-400 mb-3">
+                  Project Details <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 blur-sm" />
+                  <textarea
+                    required
+                    rows={6}
+                    value={formData.projectDetails}
+                    onChange={(e) => setFormData({...formData, projectDetails: e.target.value})}
+                    className="relative w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 transition-all duration-300 resize-none"
+                    placeholder="Tell us about your project, goals, and what you'd like to achieve during our 2-hour consultation..."
+                  />
+                </div>
+                <div className="mt-2 text-sm text-gray-500">
+                  <span className={`transition-colors duration-300 ${formData.projectDetails.length > 50 ? 'text-emerald-400' : ''}`}>
+                    {formData.projectDetails.length} characters
+                  </span>
+                </div>
+              </div>
+
+              {/* Form Validation */}
+              <div className="pt-4">
+                <div className={`flex items-center gap-3 p-4 rounded-xl transition-all duration-300 ${
+                  isFormValid 
+                    ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                    : 'bg-amber-500/10 border border-amber-500/20'
+                }`}>
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${
+                    isFormValid ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`} />
+                  <div className="text-sm text-white">
+                    {isFormValid 
+                      ? '✓ All required fields are complete'
+                      : 'Please fill in all required fields (*)'
+                    }
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBackToSchedule}
+                  className="flex-1 group"
+                >
+                  <span className="flex items-center justify-center gap-3">
+                    <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Schedule
+                  </span>
+                </Button>
+                
+                <Button
+                  type="submit"
+                  disabled={loading || !isFormValid}
+                  className="group flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
+                  <span className="relative flex items-center justify-center gap-3">
+                    {loading ? (
+                      <>
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 transform group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Confirm & Schedule Meeting
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </Reveal>
       </div>
 
       <style jsx global>{`
-        @keyframes gradient-text {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
+        @keyframes float {
+          0%, 100% { 
+            transform: translateY(0px) translateX(0px); 
+            opacity: 0.2;
+          }
+          50% { 
+            transform: translateY(-20px) translateX(10px); 
+            opacity: 0.5;
+          }
         }
         
-        .animate-gradient-text {
-          background-size: 200% auto;
-          animation: gradient-text 3s ease infinite;
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 0.4; }
+        }
+        
+        @keyframes slide-up {
+          from { 
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes scale-in {
+          0% { transform: scale(0); }
+          70% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+        
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        .animate-pulse-slow {
+          animation: pulse-slow 4s ease-in-out infinite;
+        }
+        
+        .animate-slide-up {
+          animation: slide-up 0.6s ease-out forwards;
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out forwards;
+        }
+        
+        .animate-scale-in {
+          animation: scale-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
       `}</style>
-    </section>
+    </div>
   )
 }
