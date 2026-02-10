@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import Reveal from "@/components/animations/reveal"
 import Magnetic from "@/components/animations/magnetic"
 import Button from "@/components/ui/button"
@@ -14,25 +15,25 @@ interface TimeSlot {
 
 interface CalendarDay {
   date: number
-  month: number // 0-11
-  day: number // 0-6 (Sunday-Saturday)
+  month: number
+  day: number
   available: boolean
   currentMonth: boolean
 }
 
+interface ScheduleData {
+  date: Date | null
+  time: string | null
+  timezone: "IST" | "GMT"
+}
+
 export default function CTA() {
+  const router = useRouter()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [showSchedule, setShowSchedule] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [selectedTimezone, setSelectedTimezone] = useState<"IST" | "GMT">("IST")
-  const [showContactForm, setShowContactForm] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    projectDetails: "",
-    preferredDate: "",
-    preferredTime: "",
+  const [scheduleData, setScheduleData] = useState<ScheduleData>({
+    date: null,
+    time: null,
     timezone: "IST"
   })
 
@@ -42,17 +43,12 @@ export default function CTA() {
     const year = 2026
     const month = 1 // February (0-indexed)
     
-    // Get first day of month
     const firstDay = new Date(year, month, 1)
-    // Get last day of month
     const lastDay = new Date(year, month + 1, 0)
-    // Get days in month
     const daysInMonth = lastDay.getDate()
-    
-    // Get starting day (0 = Sunday, 1 = Monday, etc.)
     const startDay = firstDay.getDay()
     
-    // Add days from previous month
+    // Previous month days
     const prevMonthLastDay = new Date(year, month, 0).getDate()
     for (let i = startDay - 1; i >= 0; i--) {
       days.push({
@@ -64,11 +60,10 @@ export default function CTA() {
       })
     }
     
-    // Add days from current month
+    // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
       const currentDate = new Date(year, month, i)
       const dayOfWeek = currentDate.getDay()
-      // Make business days (Mon-Fri) available
       const available = dayOfWeek >= 1 && dayOfWeek <= 5
       
       days.push({
@@ -80,7 +75,7 @@ export default function CTA() {
       })
     }
     
-    // Add days from next month to complete grid
+    // Next month days
     const totalCells = Math.ceil(days.length / 7) * 7
     let nextMonthDay = 1
     while (days.length < totalCells) {
@@ -204,48 +199,44 @@ export default function CTA() {
   const handleDateSelect = (day: CalendarDay) => {
     if (day.available && day.currentMonth) {
       const selected = new Date(2026, day.month, day.date)
-      setSelectedDate(selected)
-      setSelectedTime(null)
+      setScheduleData(prev => ({
+        ...prev,
+        date: selected,
+        time: null // Reset time when date changes
+      }))
     }
   }
 
   const handleTimeSelect = (time: string, timezone: "IST" | "GMT") => {
-    if (selectedDate) {
-      setSelectedTime(time)
-      setSelectedTimezone(timezone)
+    if (scheduleData.date) {
+      setScheduleData(prev => ({
+        ...prev,
+        time,
+        timezone
+      }))
     }
   }
 
   const handleProceedToContact = () => {
-    if (selectedDate && selectedTime) {
-      setFormData({
-        ...formData,
-        preferredDate: selectedDate.toDateString(),
-        preferredTime: selectedTime,
-        timezone: selectedTimezone
-      })
-      setShowContactForm(true)
+    if (scheduleData.date && scheduleData.time) {
+      // Store schedule data in localStorage for contact page
+      const scheduleInfo = {
+        date: scheduleData.date.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        time: scheduleData.time,
+        timezone: scheduleData.timezone,
+        timestamp: scheduleData.date.getTime()
+      }
+      
+      localStorage.setItem('meetingSchedule', JSON.stringify(scheduleInfo))
+      
+      // Navigate to contact page
+      router.push('/contact')
     }
-  }
-
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    // Here you would integrate with your form submission service
-    console.log("Form submitted:", formData)
-    alert("Meeting scheduled successfully! We'll confirm via email.")
-    // Reset everything
-    setShowSchedule(false)
-    setShowContactForm(false)
-    setSelectedDate(null)
-    setSelectedTime(null)
-    setFormData({
-      name: "",
-      email: "",
-      projectDetails: "",
-      preferredDate: "",
-      preferredTime: "",
-      timezone: "IST"
-    })
   }
 
   const renderCalendar = () => {
@@ -264,10 +255,10 @@ export default function CTA() {
         </div>
         <div className="grid grid-cols-7 gap-2">
           {calendarDays.map((day, index) => {
-            const isSelected = selectedDate && 
-              selectedDate.getDate() === day.date && 
-              selectedDate.getMonth() === day.month
-            const isToday = day.date === 15 && day.month === 1 // February 15, 2026
+            const isSelected = scheduleData.date && 
+              scheduleData.date.getDate() === day.date && 
+              scheduleData.date.getMonth() === day.month
+            const isToday = day.date === 15 && day.month === 1
             
             return (
               <button
@@ -296,17 +287,17 @@ export default function CTA() {
   }
 
   const renderTimeSlots = () => {
-    const filteredSlots = timeSlots.filter(slot => slot.timezone === selectedTimezone)
+    const filteredSlots = timeSlots.filter(slot => slot.timezone === scheduleData.timezone)
     
     return (
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-white">Select Time Slot</h3>
+          <h3 className="text-2xl font-bold text-white">Select Time Slot (2-hour duration)</h3>
           <div className="flex gap-2">
             <button
-              onClick={() => setSelectedTimezone("IST")}
+              onClick={() => setScheduleData(prev => ({ ...prev, timezone: "IST", time: null }))}
               className={`px-4 py-2 rounded-lg transition-all duration-300 ${
-                selectedTimezone === "IST" 
+                scheduleData.timezone === "IST" 
                   ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
                   : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
@@ -314,9 +305,9 @@ export default function CTA() {
               IST (India)
             </button>
             <button
-              onClick={() => setSelectedTimezone("GMT")}
+              onClick={() => setScheduleData(prev => ({ ...prev, timezone: "GMT", time: null }))}
               className={`px-4 py-2 rounded-lg transition-all duration-300 ${
-                selectedTimezone === "GMT" 
+                scheduleData.timezone === "GMT" 
                   ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
                   : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
@@ -331,11 +322,11 @@ export default function CTA() {
             <button
               key={slot.id}
               onClick={() => handleTimeSelect(slot.time, slot.timezone)}
-              disabled={!selectedDate}
+              disabled={!scheduleData.date}
               className={`
                 relative px-4 py-3 rounded-xl text-center transition-all duration-300
-                ${!selectedDate ? 'opacity-50 cursor-not-allowed' : ''}
-                ${selectedTime === slot.time ? 
+                ${!scheduleData.date ? 'opacity-50 cursor-not-allowed' : ''}
+                ${scheduleData.time === slot.time ? 
                   'bg-gradient-to-r from-blue-500 to-cyan-500 text-white scale-105' : 
                   'bg-white/5 hover:bg-white/10 text-gray-300'
                 }
@@ -345,7 +336,7 @@ export default function CTA() {
               <div className="text-xs mt-1 opacity-70">
                 {slot.timezone}
               </div>
-              {selectedTime === slot.time && (
+              {scheduleData.time === slot.time && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-white animate-ping" />
               )}
             </button>
@@ -355,151 +346,68 @@ export default function CTA() {
     )
   }
 
-  const renderContactForm = () => {
+  const renderScheduleInterface = () => {
     return (
-      <form onSubmit={handleFormSubmit} className="space-y-6">
-        <div className="bg-white/5 rounded-xl p-6 mb-6">
-          <h4 className="text-lg font-semibold text-white mb-3">Selected Schedule</h4>
-          <div className="flex flex-col sm:flex-row gap-4 text-gray-300">
-            <div className="flex-1">
-              <div className="text-sm text-gray-400">Date</div>
-              <div className="font-medium">{formData.preferredDate}</div>
-            </div>
-            <div className="flex-1">
-              <div className="text-sm text-gray-400">Time</div>
-              <div className="font-medium">{formData.preferredTime} ({formData.timezone})</div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Your Name *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors duration-300"
-            placeholder="John Doe"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Email Address *
-          </label>
-          <input
-            type="email"
-            required
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors duration-300"
-            placeholder="john@example.com"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Project Details *
-          </label>
-          <textarea
-            required
-            rows={4}
-            value={formData.projectDetails}
-            onChange={(e) => setFormData({...formData, projectDetails: e.target.value})}
-            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors duration-300 resize-none"
-            placeholder="Tell us about your project or what you'd like to discuss..."
-          />
-        </div>
-
-        <div className="flex gap-4">
-          <Button
-            type="button"
-            variant="outline"
+      <div className="max-w-4xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-3xl font-bold text-white">Schedule a Discovery Call</h3>
+          <button
             onClick={() => {
-              setShowContactForm(false)
-              setShowSchedule(true)
+              setShowSchedule(false)
+              setScheduleData({ date: null, time: null, timezone: "IST" })
             }}
-            className="flex-1"
+            className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 transition-colors duration-300"
           >
             ← Back
-          </Button>
-          <Button
-            type="submit"
-            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-          >
-            Confirm Schedule
-          </Button>
+          </button>
         </div>
-      </form>
+        
+        {renderCalendar()}
+        {renderTimeSlots()}
+        
+        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 border border-white/10">
+          <h4 className="text-xl font-semibold text-white mb-4">Meeting Summary</h4>
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <div className="text-sm text-gray-400 mb-2">Selected Date</div>
+              <div className="text-lg text-white">
+                {scheduleData.date ? scheduleData.date.toDateString() : "Not selected"}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-400 mb-2">Selected Time</div>
+              <div className="text-lg text-white">
+                {scheduleData.time ? `${scheduleData.time} (${scheduleData.timezone})` : "Not selected"}
+              </div>
+            </div>
+          </div>
+          
+          <div className="pt-6 border-t border-white/10">
+            <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Duration: 2 hours
+            </div>
+            <Button
+              onClick={handleProceedToContact}
+              disabled={!scheduleData.date || !scheduleData.time}
+              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {scheduleData.date && scheduleData.time ? "Proceed to Contact Form" : "Select Date & Time"}
+            </Button>
+            <p className="text-sm text-gray-400 mt-4 text-center">
+              You'll fill in your details on the next page
+            </p>
+          </div>
+        </div>
+      </div>
     )
   }
 
   const renderMainContent = () => {
-    if (showContactForm) {
-      return (
-        <div className="max-w-2xl mx-auto">
-          <h3 className="text-3xl font-bold text-white mb-2">Finalize Your Meeting</h3>
-          <p className="text-gray-400 mb-8">
-            Please provide your details to confirm the schedule
-          </p>
-          {renderContactForm()}
-        </div>
-      )
-    }
-
     if (showSchedule) {
-      return (
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-3xl font-bold text-white">Schedule a Call</h3>
-            <button
-              onClick={() => {
-                setShowSchedule(false)
-                setSelectedDate(null)
-                setSelectedTime(null)
-              }}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 transition-colors duration-300"
-            >
-              ← Back
-            </button>
-          </div>
-          
-          {renderCalendar()}
-          {renderTimeSlots()}
-          
-          <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 border border-white/10">
-            <h4 className="text-xl font-semibold text-white mb-4">Meeting Details</h4>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Selected Date</div>
-                <div className="text-lg text-white">
-                  {selectedDate ? selectedDate.toDateString() : "Not selected"}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Selected Time</div>
-                <div className="text-lg text-white">
-                  {selectedTime ? `${selectedTime} (${selectedTimezone})` : "Not selected"}
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6 pt-6 border-t border-white/10">
-              <div className="text-sm text-gray-400 mb-4">Duration: 2 hours</div>
-              <Button
-                onClick={handleProceedToContact}
-                disabled={!selectedDate || !selectedTime}
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {selectedDate && selectedTime ? "Proceed to Confirm" : "Select Date & Time"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )
+      return renderScheduleInterface()
     }
 
     return (
