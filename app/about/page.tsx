@@ -3,117 +3,210 @@
 import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 
-type Particle = {
-  x: number
-  y: number
-  size: number
-  speedX: number
-  speedY: number
-}
-
 export default function AboutPage() {
   const [mounted, setMounted] = useState(false)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [activeMember, setActiveMember] = useState<string | null>(null)
-  const [scrollProgress, setScrollProgress] = useState(0)
-  const [isClient, setIsClient] = useState(false)
-
-  const sectionRef = useRef<HTMLElement | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const particlesRef = useRef<Particle[]>([])
+  const [showCinematic, setShowCinematic] = useState(true)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cinematicCanvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number | null>(null)
+  const cinematicRef = useRef<number | null>(null)
+
+  // Sand particles
+  const particlesRef = useRef<Array<{
+    x: number
+    y: number
+    size: number
+    speedX: number
+    speedY: number
+    originalX: number
+    originalY: number
+    color: string
+  }>>([])
+
+  // Cinematic animation variables
+  const cinematicProgress = useRef(0)
+  const lettersRef = useRef<Array<{
+    char: string
+    x: number
+    y: number
+    opacity: number
+    scale: number
+  }>>([])
 
   useEffect(() => {
     setMounted(true)
-    setIsClient(true)
   }, [])
 
+  // Initialize cinematic animation
   useEffect(() => {
-    if (!mounted || !isClient) return
+    if (!mounted || !cinematicCanvasRef.current) return
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (e.clientX !== undefined && e.clientY !== undefined) {
-        setMousePosition({ x: e.clientX, y: e.clientY })
+    const canvas = cinematicCanvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+
+    // Create letters for "ABOUT AGENTRA"
+    const text = "ABOUT AGENTRA"
+    lettersRef.current = []
+    const centerX = canvas.width / 2
+    const centerY = canvas.height / 2
+    const spacing = 60
+
+    for (let i = 0; i < text.length; i++) {
+      lettersRef.current.push({
+        char: text[i],
+        x: centerX + (i - text.length / 2) * spacing,
+        y: centerY,
+        opacity: 0,
+        scale: 0
+      })
+    }
+
+    let startTime = Date.now()
+    const duration = 3000 // 3 seconds cinematic
+
+    const animateCinematic = () => {
+      const elapsed = Date.now() - startTime
+      cinematicProgress.current = Math.min(elapsed / duration, 1)
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      // Draw cinematic background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Animate letters
+      lettersRef.current.forEach((letter, i) => {
+        const delay = i * 0.1
+        const letterProgress = Math.max(0, (cinematicProgress.current - delay) / 0.8)
+
+        if (letterProgress > 0) {
+          // Fly-in animation
+          const targetY = centerY
+          const currentY = targetY + (1 - letterProgress) * 200
+          const currentOpacity = Math.min(letterProgress * 2, 1)
+          const currentScale = Math.min(letterProgress * 1.5, 1)
+
+          // Draw glowing effect
+          ctx.save()
+          ctx.globalAlpha = currentOpacity * 0.3
+          ctx.fillStyle = '#ffffff'
+          for (let j = 0; j < 3; j++) {
+            ctx.beginPath()
+            ctx.arc(letter.x, currentY, 30 + j * 10, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+
+          // Draw letter
+          ctx.save()
+          ctx.globalAlpha = currentOpacity
+          ctx.fillStyle = '#ffffff'
+          ctx.font = `bold ${80 * currentScale}px Arial`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(letter.char, letter.x, currentY)
+          ctx.restore()
+        }
+      })
+
+      // Particle explosion effect at the end
+      if (cinematicProgress.current > 0.8) {
+        const explosionProgress = (cinematicProgress.current - 0.8) / 0.2
+        const particleCount = 100
+        const radius = 400 * (1 - explosionProgress)
+
+        for (let i = 0; i < particleCount; i++) {
+          const angle = (i / particleCount) * Math.PI * 2
+          const distance = radius * Math.random()
+          const x = centerX + Math.cos(angle) * distance
+          const y = centerY + Math.sin(angle) * distance
+
+          ctx.beginPath()
+          ctx.arc(x, y, 2, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(255, 255, 255, ${1 - explosionProgress})`
+          ctx.fill()
+        }
+      }
+
+      if (cinematicProgress.current < 1) {
+        cinematicRef.current = requestAnimationFrame(animateCinematic)
+      } else {
+        setTimeout(() => {
+          setShowCinematic(false)
+        }, 500)
       }
     }
 
-    const handleScroll = () => {
-      if (!sectionRef.current) return
-      const rect = sectionRef.current.getBoundingClientRect()
-      const viewHeight = window.innerHeight
-      const progress = Math.max(
-        0,
-        Math.min(1, (viewHeight - rect.top) / (rect.height * 0.7))
-      )
-      setScrollProgress(progress)
+    animateCinematic()
+
+    const handleResize = () => {
+      if (cinematicCanvasRef.current) {
+        cinematicCanvasRef.current.width = window.innerWidth
+        cinematicCanvasRef.current.height = window.innerHeight
+      }
     }
 
-    window.addEventListener("mousemove", handleMouseMove)
-    window.addEventListener("scroll", handleScroll)
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (cinematicRef.current) {
+        cancelAnimationFrame(cinematicRef.current)
+      }
+    }
+  }, [mounted])
+
+  // Initialize sand particle system
+  useEffect(() => {
+    if (!mounted || !canvasRef.current || showCinematic) return
 
     const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext("2d")
+    const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+
+    // Create sand particles
+    const particleCount = 3000
+    particlesRef.current = []
+
+    for (let i = 0; i < particleCount; i++) {
+      particlesRef.current.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 0.5,
+        speedX: 0,
+        speedY: 0,
+        originalX: Math.random() * canvas.width,
+        originalY: Math.random() * canvas.height,
+        color: `rgba(255, 255, 255, ${Math.random() * 0.1 + 0.05})`
+      })
     }
 
-    resizeCanvas()
-    window.addEventListener("resize", resizeCanvas)
-
-    // Initialize particles
-    particlesRef.current = Array.from({ length: 200 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      size: Math.random() * 2 + 1,
-      speedX: Math.random() * 0.8 - 0.4,
-      speedY: Math.random() * 0.8 - 0.4,
-    }))
-
+    // Sand animation
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // Draw connections
-      particlesRef.current.forEach((p, i) => {
-        particlesRef.current.slice(i + 1).forEach((other) => {
-          const dx = p.x - other.x
-          const dy = p.y - other.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
+      particlesRef.current.forEach(particle => {
+        // Update position
+        particle.x += particle.speedX
+        particle.y += particle.speedY
 
-          if (distance < 150) {
-            ctx.beginPath()
-            ctx.moveTo(p.x, p.y)
-            ctx.lineTo(other.x, other.y)
-            ctx.strokeStyle = `rgba(100, 200, 255, ${0.1 * (1 - distance/150)})`
-            ctx.lineWidth = 0.5
-            ctx.stroke()
-          }
-        })
-      })
+        // Boundary check
+        if (particle.x > canvas.width) particle.x = 0
+        if (particle.x < 0) particle.x = canvas.width
+        if (particle.y > canvas.height) particle.y = 0
+        if (particle.y < 0) particle.y = canvas.height
 
-      // Update and draw particles
-      particlesRef.current.forEach((p) => {
-        p.x += p.speedX
-        p.y += p.speedY
-
-        if (p.x > canvas.width) p.x = 0
-        if (p.x < 0) p.x = canvas.width
-        if (p.y > canvas.height) p.y = 0
-        if (p.y < 0) p.y = canvas.height
-
-        // Glow effect
+        // Draw particle
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2)
-        ctx.fillStyle = "rgba(100, 200, 255, 0.1)"
-        ctx.fill()
-
-        // Core particle
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx.fillStyle = "rgba(100, 200, 255, 0.4)"
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+        ctx.fillStyle = particle.color
         ctx.fill()
       })
 
@@ -122,13 +215,22 @@ export default function AboutPage() {
 
     animate()
 
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("scroll", handleScroll)
-      window.removeEventListener("resize", resizeCanvas)
-      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    const handleResize = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = window.innerWidth
+        canvasRef.current.height = window.innerHeight
+      }
     }
-  }, [mounted, isClient])
+
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+    }
+  }, [mounted, showCinematic])
 
   if (!mounted) return null
 
@@ -138,8 +240,7 @@ export default function AboutPage() {
       roles: ["Chief Operating Officer (COO)", "Java Backend Developer", "Data Developer"],
       img: "VP",
       description: "Varun specializes in building robust and scalable backend systems using Java. He focuses on clean architecture, efficient code, and reliable APIs.\n\nDriven by problem-solving and performance optimization, he delivers stable, secure, and maintainable solutions aligned with both client and business goals.",
-      color: "#3B82F6",
-      gradient: "from-blue-500 via-cyan-500 to-blue-700",
+      borderColor: "border-blue-500/30",
       skills: ["Java", "Data Analysis", "Backend Architecture", "API Development", "System Design"]
     },
     {
@@ -147,17 +248,15 @@ export default function AboutPage() {
       roles: ["Chief Data Officer (CDO)", "Co-Founder"],
       img: "KY",
       description: "Kartikeya is an AI enthusiast with strong expertise in intelligent chatbots and automation-driven systems. He works with Python, SQL, and Generative AI to build data-driven and conversational solutions.\n\nHis technical stack includes Ruby, AWS, and MongoDB, enabling scalable AI-backed applications with real-world impact.",
-      color: "#8B5CF6",
-      gradient: "from-purple-500 via-pink-500 to-purple-700",
-      skills: ["GenAI", "Python", "Ruby", "Database Management", "AWS","Backend Development", "Data Analysis"]
+      borderColor: "border-purple-500/30",
+      skills: ["GenAI", "Python", "Ruby", "Database Management", "AWS", "Backend Development", "Data Analysis"]
     },
     {
       name: "Ankit Pandey",
       roles: ["Co-Founder"],
       img: "AP",
       description: "Ankit manages financial strategy, planning, and operational efficiency for the agency. With a strong background in Python, Agentic AI, and Excel, he bridges the gap between technical execution and business sustainability.\n\nHe ensures data-backed decision-making and optimized resource allocation across projects.",
-      color: "#10B981",
-      gradient: "from-green-500 via-emerald-500 to-green-700",
+      borderColor: "border-green-500/30",
       skills: ["Agentic AI", "Machine Learning", "Python", "Financial Analysis", "Excel Automation"]
     },
     {
@@ -165,505 +264,230 @@ export default function AboutPage() {
       roles: ["Chief Technology Officer (CTO)"],
       img: "SK",
       description: "Shivendu leads the technical vision and architecture of the agency. His core expertise lies in C++ backend development, AI/ML systems, and modern frontend development using React.\n\nHe oversees system design, technology choices, and engineering standards to ensure scalable, high-performance, and future-ready solutions.",
-      color: "#F59E0B",
-      gradient: "from-amber-500 via-orange-500 to-amber-700",
+      borderColor: "border-amber-500/30",
       skills: ["AI/ML", "React", "C++", "System Architecture", "Frontend Development", "Technical Leadership"]
     }
   ]
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative bg-black py-40 overflow-hidden min-h-screen"
-    >
-      {/* Canvas Background */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0"
-        style={{
-          opacity: 0.4,
-          filter: `blur(${scrollProgress * 1.5}px) brightness(${0.8 + scrollProgress * 0.4})`
-        }}
-      />
-
-      {/* Animated Grid */}
-      {isClient && (
-        <div 
-          className="absolute inset-0 opacity-5 pointer-events-none"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, rgba(59, 130, 246, 0.2) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(59, 130, 246, 0.2) 1px, transparent 1px)
-            `,
-            backgroundSize: '80px 80px',
-            backgroundPosition: `${mousePosition.x * 0.02}px ${mousePosition.y * 0.02}px`,
-            transform: `translateY(${scrollProgress * -200}px) scale(${1 + scrollProgress * 0.1})`
-          }}
-        />
-      )}
-
-      {/* Floating Tech Icons */}
-      {isClient && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {['</>', '{ }', '=>', '()', '[]', 'AI', 'API', 'DB', 'λ', 'σ', 'π'].map((icon, i) => (
-            <motion.div
-              key={i}
-              className="absolute text-white/10 text-8xl font-mono"
-              initial={{ 
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
-                rotate: Math.random() * 360
-              }}
-              animate={{
-                y: [null, Math.random() * 100 - 50],
-                rotate: [null, 360],
-                x: [null, Math.random() * 50 - 25]
-              }}
-              transition={{
-                duration: 30 + Math.random() * 30,
-                repeat: Infinity,
-                repeatType: "reverse",
-                delay: Math.random() * 5
-              }}
-            >
-              {icon}
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Dynamic Light Effects */}
-      {isClient && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div 
-            className="absolute w-[800px] h-[800px] rounded-full blur-3xl"
-            style={{
-              background: `radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)`,
-              left: `${mousePosition.x}px`,
-              top: `${mousePosition.y}px`,
-              transform: 'translate(-50%, -50%)',
-            }}
+    <>
+      {/* Cinematic Intro */}
+      {showCinematic && (
+        <div className="fixed inset-0 z-50 bg-black">
+          <canvas
+            ref={cinematicCanvasRef}
+            className="absolute inset-0"
           />
         </div>
       )}
 
-      <div className="relative mx-auto max-w-6xl px-6 z-10">
-        {/* Hero Section */}
+      <section className="relative bg-black min-h-screen overflow-hidden">
+        {/* Sand Effect Canvas */}
+        {!showCinematic && (
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0"
+            style={{
+              opacity: 0.15
+            }}
+          />
+        )}
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-black/50 to-black" />
+
+        {/* Main Content */}
         <motion.div
-          initial={{ opacity: 0, y: 80 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ 
-            duration: 1.2,
-            ease: [0.22, 1, 0.36, 1]
-          }}
-          className="mx-auto max-w-4xl text-center mb-32"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: showCinematic ? 0 : 1 }}
+          transition={{ duration: 1, delay: 0.5 }}
+          className="relative z-10 container mx-auto px-4 py-24"
         >
-          <div className="relative inline-block mb-12">
-            <h1 className="text-6xl md:text-8xl font-bold tracking-tight relative">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.7 }}
+            className="text-center mb-20"
+          >
+            <motion.h1 
+              className="text-6xl md:text-8xl font-bold mb-6 tracking-tight"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, duration: 1 }}
+            >
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent animate-gradient">
                 About Agentra
               </span>
-            </h1>
+            </motion.h1>
             
-            <motion.div 
-              className="absolute -bottom-4 left-1/4 right-1/4 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: 0.5, duration: 1.5, ease: "circOut" }}
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: "160px" }}
+              transition={{ delay: 1.1, duration: 1 }}
+              className="h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto mb-8"
             />
-          </div>
 
-          <div className="space-y-8">
-            <motion.p 
-              className="text-2xl text-gray-200 leading-relaxed backdrop-blur-lg bg-gradient-to-br from-white/10 to-white/5 p-8 rounded-3xl border border-white/20 shadow-2xl shadow-blue-500/10"
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
+              transition={{ delay: 1.3, duration: 1 }}
+              className="max-w-3xl mx-auto space-y-6"
             >
-              <span className="text-blue-300 font-bold">Agentra</span> is a four-member digital studio focused on building{" "}
-              <motion.span 
-                className="text-white font-extrabold inline-block"
-                animate={{ 
-                  textShadow: [
-                    "0 0 10px rgba(255,255,255,0.5)",
-                    "0 0 20px rgba(59, 130, 246, 0.8)",
-                    "0 0 10px rgba(255,255,255,0.5)"
-                  ]
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                fast
-              </motion.span>
-              {", "}
-              <motion.span 
-                className="text-white font-extrabold inline-block"
-                animate={{ 
-                  textShadow: [
-                    "0 0 10px rgba(255,255,255,0.5)",
-                    "0 0 20px rgba(139, 92, 246, 0.8)",
-                    "0 0 10px rgba(255,255,255,0.5)"
-                  ]
-                }}
-                transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
-              >
-                reliable
-              </motion.span>
-              {", and "}
-              <motion.span 
-                className="text-white font-extrabold inline-block"
-                animate={{ 
-                  textShadow: [
-                    "0 0 10px rgba(255,255,255,0.5)",
-                    "0 0 20px rgba(16, 185, 129, 0.8)",
-                    "0 0 10px rgba(255,255,255,0.5)"
-                  ]
-                }}
-                transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
-              >
-                high-quality
-              </motion.span>{" "}
-              web experiences.
-            </motion.p>
+              <p className="text-xl text-gray-300 leading-relaxed font-light">
+                A premier digital studio of four experts dedicated to crafting{" "}
+                <span className="text-white font-medium">fast</span>,{" "}
+                <span className="text-white font-medium">reliable</span>, and{" "}
+                <span className="text-white font-medium">high-quality</span>{" "}
+                digital experiences.
+              </p>
+              
+              <p className="text-lg text-gray-400 leading-relaxed">
+                We operate as a focused, agile team where each member brings specialized expertise,
+                enabling us to deliver exceptional results with precision and efficiency.
+              </p>
+            </motion.div>
+          </motion.div>
 
-            <motion.p 
-              className="text-xl text-gray-300 leading-relaxed backdrop-blur-lg bg-gradient-to-br from-white/5 to-transparent p-8 rounded-3xl border border-white/15 shadow-xl shadow-purple-500/5"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1 }}
-            >
-              We work as a small, focused team where each member owns a clear role,
-              allowing us to move quickly without sacrificing quality.
-            </motion.p>
-          </div>
-        </motion.div>
-
-        {/* Process Section */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 1 }}
-          className="mx-auto mb-32 max-w-5xl"
-        >
-          <div className="relative">
-            <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-blue-500/50 via-purple-500/50 to-cyan-500/50" />
-            
-            <div className="relative z-10">
-              <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.4 }}
-                className="mb-24 text-right pr-12"
-              >
-                <div className="inline-block bg-gradient-to-br from-blue-500/20 to-blue-700/20 backdrop-blur-xl p-8 rounded-3xl border border-blue-500/30 shadow-2xl">
-                  <h3 className="text-2xl font-bold text-white mb-4">Our Philosophy</h3>
-                  <p className="text-lg text-gray-300 leading-relaxed">
-                    Simple, intentional process that emphasizes collaboration, 
-                    clarity in design, and performance-focused development.
-                  </p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.6 }}
-                className="mb-24 pl-12"
-              >
-                <div className="inline-block bg-gradient-to-br from-purple-500/20 to-purple-700/20 backdrop-blur-xl p-8 rounded-3xl border border-purple-500/30 shadow-2xl">
-                  <h3 className="text-2xl font-bold text-white mb-4">Core Principles</h3>
-                  <p className="text-lg text-gray-300 leading-relaxed mb-4">
-                    Every decision is guided by three key principles:
-                  </p>
-                  <ul className="space-y-3">
-                    {[
-                      { text: "Usability", desc: "User Experience First", color: "blue-500" },
-                      { text: "Scalability", desc: "Future-Proof Architecture", color: "purple-500" },
-                      { text: "Reliability", desc: "Sustainable Solutions", color: "cyan-500" }
-                    ].map((principle, i) => (
-                      <motion.li
-                        key={principle.text}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 1.8 + i * 0.2 }}
-                        className="flex items-center gap-3 group"
-                      >
-                        <div className={`w-3 h-3 rounded-full bg-${principle.color} animate-pulse`} />
-                        <span className="text-white font-medium">{principle.text}</span>
-                        <span className="text-gray-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                          — {principle.desc}
-                        </span>
-                      </motion.li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Team Section */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2, duration: 1 }}
-          className="mt-32"
-        >
-          <div className="text-center mb-20">
-            <motion.h2 
-              className="text-5xl font-bold mb-6"
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 2.2 }}
-            >
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                Meet Our Team
-              </span>
-            </motion.h2>
-            <motion.p 
-              className="text-xl text-gray-400 max-w-2xl mx-auto"
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 2.4 }}
-            >
-              The passionate individuals behind Agentra's success
-            </motion.p>
-          </div>
-
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Professional Team Grid - 2 columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
             {teamMembers.map((member, index) => (
               <motion.div
                 key={member.name}
-                initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ 
-                  delay: 2.6 + index * 0.15,
-                  duration: 0.8,
-                  type: "spring",
-                  stiffness: 100
+                  delay: 1.5 + index * 0.15,
+                  duration: 0.6,
+                  ease: "easeOut"
                 }}
-                className="relative group"
-                onMouseEnter={() => setActiveMember(member.name)}
-                onMouseLeave={() => setActiveMember(null)}
+                className="group"
               >
-                <div 
-                  className={`absolute -inset-1 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500`}
-                  style={{ 
-                    background: `linear-gradient(45deg, ${member.color}40, ${member.color}20, transparent)`
-                  }}
-                />
-
-                <div 
-                  className={`relative rounded-2xl backdrop-blur-xl p-8 transition-all duration-500 ${
-                    activeMember === member.name 
-                      ? 'bg-gradient-to-br from-white/15 to-white/5 shadow-2xl scale-105' 
-                      : 'bg-gradient-to-br from-white/10 to-white/5 shadow-xl'
-                  }`}
-                  style={{
-                    border: `1px solid ${member.color}${activeMember === member.name ? '40' : '20'}`,
-                    boxShadow: activeMember === member.name 
-                      ? `0 25px 50px -12px ${member.color}40` 
-                      : '0 20px 40px -10px rgba(0,0,0,0.3)'
-                  }}
-                >
-                  {/* Avatar */}
-                  <div className="relative mx-auto w-40 h-40 mb-8">
-                    <motion.div
-                      className="absolute inset-0 rounded-full"
-                      animate={{ 
-                        rotate: 360,
-                        scale: activeMember === member.name ? [1, 1.1, 1] : 1
-                      }}
-                      transition={{ 
-                        rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                        scale: { duration: 2, repeat: Infinity }
-                      }}
-                      style={{
-                        background: `conic-gradient(from 0deg, ${member.color}40, ${member.color}80, ${member.color}40)`,
-                        padding: '4px'
-                      }}
-                    />
-                    
-                    <div className="absolute inset-4 rounded-full bg-black/80 flex items-center justify-center">
-                      <motion.div
-                        animate={{ 
-                          scale: activeMember === member.name ? [1, 1.05, 1] : 1,
-                          rotate: activeMember === member.name ? [0, 5, -5, 0] : 0
-                        }}
-                        transition={{ 
-                          scale: { duration: 2, repeat: Infinity },
-                          rotate: { duration: 0.5 }
-                        }}
-                        className="text-4xl font-bold bg-gradient-to-br from-white to-gray-300 bg-clip-text text-transparent"
-                      >
-                        {member.img}
-                      </motion.div>
+                {/* Professional Card with colored border */}
+                <div className={`relative bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-sm rounded-2xl p-8 h-full ${member.borderColor} border`}>
+                  
+                  {/* Header */}
+                  <div className="mb-6">
+                    <h3 className="text-2xl font-bold text-white mb-2">{member.name}</h3>
+                    <div className="space-y-1">
+                      {member.roles.map((role, i) => (
+                        <p key={i} className="text-gray-300 font-medium text-sm">{role}</p>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Name */}
-                  <motion.h3 
-                    className="text-2xl font-bold text-center mb-4"
-                    animate={{ 
-                      backgroundPosition: activeMember === member.name ? '200%' : '0%'
-                    }}
-                    transition={{ duration: 1.5 }}
-                    style={{
-                      background: `linear-gradient(90deg, white, ${member.color}, white)`,
-                      backgroundSize: '200% 100%',
-                      WebkitBackgroundClip: 'text',
-                      backgroundClip: 'text',
-                      color: 'transparent'
-                    }}
-                  >
-                    {member.name}
-                  </motion.h3>
-
-                  {/* Roles */}
-                  <div className="space-y-2 mb-6">
-                    {member.roles.map((role, i) => (
-                      <motion.p
-                        key={role}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 3 + i * 0.1 }}
-                        className="text-sm text-gray-300 text-center"
-                      >
-                        {role}
-                      </motion.p>
-                    ))}
-                  </div>
-
                   {/* Description */}
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ 
-                      height: activeMember === member.name ? 'auto' : 0,
-                      opacity: activeMember === member.name ? 1 : 0
-                    }}
-                    transition={{ duration: 0.4 }}
-                    className="overflow-hidden"
-                  >
-                    <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-line">
-                      {member.description}
-                    </p>
-                  </motion.div>
+                  <p className="text-gray-300 leading-relaxed mb-8 font-light whitespace-pre-line">
+                    {member.description}
+                  </p>
 
                   {/* Skills */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ 
-                      opacity: activeMember === member.name ? 1 : 0,
-                      y: activeMember === member.name ? 0 : 20
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className="mt-6 flex flex-wrap gap-2 justify-center"
-                  >
-                    {member.skills.map((skill, index) => (
-                      <motion.span
-                        key={skill}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ 
-                          scale: activeMember === member.name ? 1 : 0,
-                          opacity: activeMember === member.name ? 1 : 0
-                        }}
-                        transition={{ 
-                          delay: activeMember === member.name ? index * 0.1 : 0,
-                          type: "spring",
-                          stiffness: 200
-                        }}
-                        className="px-3 py-1 text-xs rounded-full bg-white/10 text-gray-300 border border-white/20 hover:scale-105 transition-transform cursor-default"
-                        style={{
-                          background: `rgba(${parseInt(member.color.slice(1, 3), 16)}, ${parseInt(member.color.slice(3, 5), 16)}, ${parseInt(member.color.slice(5, 7), 16)}, 0.1)`
-                        }}
-                      >
-                        {skill}
-                      </motion.span>
-                    ))}
-                  </motion.div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">
+                      Skills & Expertise
+                    </h4>
+                    <div className="flex flex-wrap gap-3">
+                      {member.skills.map((skill, i) => (
+                        <motion.span
+                          key={skill}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 1.7 + index * 0.1 + i * 0.1 }}
+                          className="px-4 py-2 bg-black/40 backdrop-blur-sm text-gray-300 text-sm rounded-lg border border-gray-800"
+                        >
+                          {skill}
+                        </motion.span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
-        </motion.div>
-      </div>
 
-      {/* Mouse Follower */}
-      {isClient && (
-        <div className="fixed pointer-events-none z-50">
+          {/* Principles Section */}
           <motion.div
-            className="w-8 h-8 rounded-full border-2 border-blue-500/50"
-            style={{
-              x: mousePosition.x - 16,
-              y: mousePosition.y - 16,
-            }}
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.7, 0.9, 0.7]
-            }}
-            transition={{
-              scale: { duration: 1, repeat: Infinity },
-              opacity: { duration: 1, repeat: Infinity }
-            }}
-          />
-        </div>
-      )}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.1, duration: 0.8 }}
+            className="max-w-4xl mx-auto mt-24"
+          >
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-white mb-4">Our Principles</h2>
+              <p className="text-gray-400">Guiding every decision we make</p>
+            </div>
 
-      {/* Scroll Progress */}
-      <div className="fixed top-0 left-0 right-0 h-1 bg-gray-900/50 backdrop-blur-sm z-40">
-        <motion.div 
-          className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: scrollProgress }}
-          transition={{ type: "spring", stiffness: 100 }}
-        />
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                {
+                  title: "Excellence",
+                  description: "Uncompromising quality in every project",
+                  icon: "★",
+                  borderColor: "border-blue-500/30"
+                },
+                {
+                  title: "Innovation",
+                  description: "Pushing boundaries with modern solutions",
+                  icon: "⚡",
+                  borderColor: "border-purple-500/30"
+                },
+                {
+                  title: "Collaboration",
+                  description: "Synergistic teamwork for optimal results",
+                  icon: "🤝",
+                  borderColor: "border-green-500/30"
+                }
+              ].map((principle, index) => (
+                <motion.div
+                  key={principle.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 2.3 + index * 0.1 }}
+                  className={`bg-gray-900/30 backdrop-blur-sm rounded-xl p-6 text-center ${principle.borderColor} border`}
+                >
+                  <div className="text-3xl mb-4">{principle.icon}</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">{principle.title}</h3>
+                  <p className="text-gray-400 text-sm">{principle.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
 
-      <style jsx global>{`
-        @keyframes gradient {
-          0%, 100% { 
-            background-position: 0% 50%; 
+        <style jsx global>{`
+          @keyframes gradient {
+            0%, 100% { 
+              background-position: 0% 50%; 
+            }
+            50% { 
+              background-position: 100% 50%; 
+            }
           }
-          50% { 
-            background-position: 100% 50%; 
+          
+          .animate-gradient {
+            background-size: 300% 300%;
+            animation: gradient 6s ease infinite;
           }
-        }
-        
-        .animate-gradient {
-          background-size: 300% 300%;
-          animation: gradient 6s ease infinite;
-        }
-        
-        body {
-          overflow-x: hidden;
-          cursor: none;
-          background: #000;
-        }
-        
-        ::-webkit-scrollbar {
-          width: 12px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.2);
-          backdrop-filter: blur(10px);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: linear-gradient(to bottom, #3B82F6, #8B5CF6, #06B6D4);
-          border-radius: 6px;
-          border: 2px solid rgba(0, 0, 0, 0.2);
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(to bottom, #2563EB, #7C3AED, #0891B2);
-        }
-        
-        @media (max-width: 768px) {
-          body {
-            cursor: auto;
+
+          /* Custom scrollbar */
+          ::-webkit-scrollbar {
+            width: 8px;
           }
-        }
-      `}</style>
-    </section>
+
+          ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+          }
+
+          ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #3B82F6, #8B5CF6);
+            border-radius: 4px;
+          }
+
+          ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(to bottom, #2563EB, #7C3AED);
+          }
+        `}</style>
+      </section>
+    </>
   )
 }
