@@ -371,7 +371,7 @@ export default function AboutPage() {
                       Expertise
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {member.skills.slice(0, 5).map((skill, i) => (
+                      {member.skills.map((skill, i) => (
                         <motion.span
                           key={skill}
                           initial={{ opacity: 0, scale: 0.9 }}
