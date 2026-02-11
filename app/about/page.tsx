@@ -25,19 +25,19 @@ export default function AboutPage() {
 
   // Cinematic animation variables
   const cinematicProgress = useRef(0)
-  const lettersRef = useRef<Array<{
-    char: string
-    x: number
-    y: number
+  const linesRef = useRef<Array<{
+    x1: number
+    y1: number
+    x2: number
+    y2: number
     opacity: number
-    scale: number
   }>>([])
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Initialize cinematic animation
+  // Initialize professional cinematic animation
   useEffect(() => {
     if (!mounted || !cinematicCanvasRef.current) return
 
@@ -48,25 +48,30 @@ export default function AboutPage() {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
-    // Create letters for "ABOUT AGENTRA"
-    const text = "ABOUT AGENTRA"
-    lettersRef.current = []
-    const centerX = canvas.width / 2
-    const centerY = canvas.height / 2
-    const spacing = 60
-
-    for (let i = 0; i < text.length; i++) {
-      lettersRef.current.push({
-        char: text[i],
-        x: centerX + (i - text.length / 2) * spacing,
-        y: centerY,
-        opacity: 0,
-        scale: 0
+    // Create minimalist grid lines
+    linesRef.current = []
+    const gridSize = 40
+    for (let i = 0; i < canvas.width; i += gridSize) {
+      linesRef.current.push({
+        x1: i,
+        y1: 0,
+        x2: i,
+        y2: canvas.height,
+        opacity: 0
+      })
+    }
+    for (let i = 0; i < canvas.height; i += gridSize) {
+      linesRef.current.push({
+        x1: 0,
+        y1: i,
+        x2: canvas.width,
+        y2: i,
+        opacity: 0
       })
     }
 
     let startTime = Date.now()
-    const duration = 3000 // 3 seconds cinematic
+    const duration = 1800 // 1.8 seconds - faster and more professional
 
     const animateCinematic = () => {
       const elapsed = Date.now() - startTime
@@ -74,70 +79,44 @@ export default function AboutPage() {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // Draw cinematic background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+      // Dark sophisticated background
+      ctx.fillStyle = '#030303'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Animate letters
-      lettersRef.current.forEach((letter, i) => {
-        const delay = i * 0.1
-        const letterProgress = Math.max(0, (cinematicProgress.current - delay) / 0.8)
+      // Main title - clean and fast reveal
+      ctx.save()
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      
+      // "ABOUT" - quick fade
+      ctx.font = '300 48px Inter, system-ui, -apple-system, sans-serif'
+      ctx.fillStyle = '#ffffff'
+      ctx.globalAlpha = Math.min(cinematicProgress.current * 2, 1)
+      ctx.fillText('ABOUT', canvas.width / 2, canvas.height / 2 - 40)
 
-        if (letterProgress > 0) {
-          // Fly-in animation
-          const targetY = centerY
-          const currentY = targetY + (1 - letterProgress) * 200
-          const currentOpacity = Math.min(letterProgress * 2, 1)
-          const currentScale = Math.min(letterProgress * 1.5, 1)
+      // "AGENTRA" - quick fade
+      ctx.font = '600 64px Inter, system-ui, -apple-system, sans-serif'
+      ctx.fillStyle = '#ffffff'
+      ctx.globalAlpha = Math.min(Math.max(0, cinematicProgress.current * 2 - 0.2), 1)
+      ctx.fillText('AGENTRA', canvas.width / 2, canvas.height / 2 + 40)
 
-          // Draw glowing effect
-          ctx.save()
-          ctx.globalAlpha = currentOpacity * 0.3
-          ctx.fillStyle = '#ffffff'
-          for (let j = 0; j < 3; j++) {
-            ctx.beginPath()
-            ctx.arc(letter.x, currentY, 30 + j * 10, 0, Math.PI * 2)
-            ctx.fill()
-          }
-          ctx.restore()
+      // Subtle horizontal line
+      ctx.beginPath()
+      ctx.moveTo(canvas.width / 2 - 60, canvas.height / 2)
+      ctx.lineTo(canvas.width / 2 + 60, canvas.height / 2)
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)'
+      ctx.lineWidth = 1
+      ctx.globalAlpha = Math.min(Math.max(0, cinematicProgress.current * 2 - 0.6), 0.4)
+      ctx.stroke()
 
-          // Draw letter
-          ctx.save()
-          ctx.globalAlpha = currentOpacity
-          ctx.fillStyle = '#ffffff'
-          ctx.font = `bold ${80 * currentScale}px Arial`
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          ctx.fillText(letter.char, letter.x, currentY)
-          ctx.restore()
-        }
-      })
-
-      // Particle explosion effect at the end
-      if (cinematicProgress.current > 0.8) {
-        const explosionProgress = (cinematicProgress.current - 0.8) / 0.2
-        const particleCount = 100
-        const radius = 400 * (1 - explosionProgress)
-
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2
-          const distance = radius * Math.random()
-          const x = centerX + Math.cos(angle) * distance
-          const y = centerY + Math.sin(angle) * distance
-
-          ctx.beginPath()
-          ctx.arc(x, y, 2, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(255, 255, 255, ${1 - explosionProgress})`
-          ctx.fill()
-        }
-      }
+      ctx.restore()
 
       if (cinematicProgress.current < 1) {
         cinematicRef.current = requestAnimationFrame(animateCinematic)
       } else {
         setTimeout(() => {
           setShowCinematic(false)
-        }, 500)
+        }, 300)
       }
     }
 
@@ -172,19 +151,19 @@ export default function AboutPage() {
     canvas.height = window.innerHeight
 
     // Create sand particles
-    const particleCount = 3000
+    const particleCount = 2000
     particlesRef.current = []
 
     for (let i = 0; i < particleCount; i++) {
       particlesRef.current.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 2 + 0.5,
-        speedX: 0,
-        speedY: 0,
+        size: Math.random() * 1.5 + 0.3,
+        speedX: (Math.random() - 0.5) * 0.2,
+        speedY: (Math.random() - 0.5) * 0.2,
         originalX: Math.random() * canvas.width,
         originalY: Math.random() * canvas.height,
-        color: `rgba(255, 255, 255, ${Math.random() * 0.1 + 0.05})`
+        color: `rgba(255, 255, 255, ${Math.random() * 0.08 + 0.02})`
       })
     }
 
@@ -271,7 +250,7 @@ export default function AboutPage() {
 
   return (
     <>
-      {/* Cinematic Intro */}
+      {/* Professional Cinematic Intro - 1.8s */}
       {showCinematic && (
         <div className="fixed inset-0 z-50 bg-black">
           <canvas
@@ -288,194 +267,169 @@ export default function AboutPage() {
             ref={canvasRef}
             className="absolute inset-0"
             style={{
-              opacity: 0.15
+              opacity: 0.12
             }}
           />
         )}
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-black/50 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-black/60 to-black" />
 
         {/* Main Content */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: showCinematic ? 0 : 1 }}
-          transition={{ duration: 1, delay: 0.5 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
           className="relative z-10 container mx-auto px-4 py-24"
         >
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.7 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
             className="text-center mb-20"
           >
             <motion.h1 
-              className="text-6xl md:text-8xl font-bold mb-6 tracking-tight"
+              className="text-5xl md:text-7xl font-light mb-6 tracking-tight"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9, duration: 1 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
             >
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent animate-gradient">
-                About Agentra
+              <span className="text-white">
+                About <span className="font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Agentra</span>
               </span>
             </motion.h1>
             
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: "160px" }}
-              transition={{ delay: 1.1, duration: 1 }}
-              className="h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto mb-8"
+              animate={{ width: "80px" }}
+              transition={{ delay: 0.5, duration: 0.6 }}
+              className="h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent mx-auto mb-8"
             />
 
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 1.3, duration: 1 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
               className="max-w-3xl mx-auto space-y-6"
             >
-              <p className="text-xl text-gray-300 leading-relaxed font-light">
-                A premier digital studio of four experts dedicated to crafting{" "}
-                <span className="text-white font-medium">fast</span>,{" "}
-                <span className="text-white font-medium">reliable</span>, and{" "}
-                <span className="text-white font-medium">high-quality</span>{" "}
-                digital experiences.
+              <p className="text-lg md:text-xl text-gray-300 leading-relaxed font-light">
+                A strategic digital studio of four specialists delivering{" "}
+                <span className="text-white">precision-crafted</span>,{" "}
+                <span className="text-white">high-performance</span> solutions.
               </p>
               
-              <p className="text-lg text-gray-400 leading-relaxed">
-                We operate as a focused, agile team where each member brings specialized expertise,
-                enabling us to deliver exceptional results with precision and efficiency.
+              <p className="text-base md:text-lg text-gray-400 leading-relaxed font-light max-w-2xl mx-auto">
+                Focused, agile, and intentional. Each expert brings distinct mastery.
               </p>
             </motion.div>
           </motion.div>
 
-          {/* Professional Team Grid - 2 columns with beautiful cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+          {/* Professional Team Grid - 2 columns with elegant cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
             {teamMembers.map((member, index) => (
               <motion.div
                 key={member.name}
-                initial={{ opacity: 0, y: 40 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ 
-                  delay: 1.5 + index * 0.15,
-                  duration: 0.6,
+                  delay: 0.7 + index * 0.1,
+                  duration: 0.5,
                   ease: "easeOut"
                 }}
               >
-                {/* Beautiful Card with subtle glow and elegant styling */}
-                <div className={`relative bg-gradient-to-br from-gray-900/50 via-gray-900/30 to-black/50 backdrop-blur-sm rounded-3xl p-8 h-full ${member.borderColor} border shadow-2xl shadow-black/50`}>
+                {/* Elegant minimalist card */}
+                <div className={`relative bg-gradient-to-br from-gray-900/40 via-gray-900/20 to-black/40 backdrop-blur-sm rounded-2xl p-7 h-full ${member.borderColor} border shadow-lg`}>
                   
-                  {/* Subtle inner glow */}
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                  {/* Subtle inner highlight */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
                   
-                  {/* Header with elegant spacing */}
-                  <div className="relative mb-6">
-                    <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">{member.name}</h3>
-                    <div className="space-y-1.5">
+                  {/* Header */}
+                  <div className="relative mb-5">
+                    <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">{member.name}</h3>
+                    <div className="space-y-1">
                       {member.roles.map((role, i) => (
-                        <p key={i} className="text-gray-300 font-light text-sm flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full bg-${member.borderColor.split('-')[1]}-500/70`} />
+                        <p key={i} className="text-gray-400 text-xs flex items-center gap-2">
+                          <span className={`w-1 h-1 rounded-full bg-${member.borderColor.split('-')[1]}-500/70`} />
                           {role}
                         </p>
                       ))}
                     </div>
                   </div>
 
-                  {/* Elegant divider */}
-                  <div className={`w-12 h-0.5 bg-gradient-to-r from-${member.borderColor.split('-')[1]}-500/50 to-transparent mb-6`} />
+                  {/* Minimal divider */}
+                  <div className={`w-10 h-px bg-${member.borderColor.split('-')[1]}-500/30 mb-5`} />
 
-                  {/* Description with refined typography */}
-                  <p className="text-gray-300 leading-relaxed mb-8 font-light text-sm tracking-wide whitespace-pre-line">
+                  {/* Description */}
+                  <p className="text-gray-400 leading-relaxed mb-6 text-sm font-light whitespace-pre-line">
                     {member.description}
                   </p>
 
-                  {/* Skills with elegant badges */}
+                  {/* Skills */}
                   <div>
-                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <span>Specializations</span>
-                      <span className={`w-1 h-1 rounded-full bg-${member.borderColor.split('-')[1]}-500/70`} />
+                    <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-3">
+                      Expertise
                     </h4>
-                    <div className="flex flex-wrap gap-2.5">
-                      {member.skills.map((skill, i) => (
+                    <div className="flex flex-wrap gap-2">
+                      {member.skills.slice(0, 5).map((skill, i) => (
                         <motion.span
                           key={skill}
-                          initial={{ opacity: 0, scale: 0.8 }}
+                          initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 1.7 + index * 0.1 + i * 0.1 }}
-                          className={`px-4 py-1.5 bg-black/60 backdrop-blur-sm text-gray-200 text-xs rounded-full border ${member.borderColor} shadow-lg shadow-black/30`}
+                          transition={{ delay: 0.9 + index * 0.1 + i * 0.05 }}
+                          className={`px-3 py-1 bg-black/50 backdrop-blur-sm text-gray-300 text-[11px] rounded-full border ${member.borderColor}`}
                         >
                           {skill}
                         </motion.span>
                       ))}
                     </div>
                   </div>
-
-                  {/* Decorative corner accent */}
-                  <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
-                    <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-${member.borderColor.split('-')[1]}-500/10 to-transparent rounded-bl-3xl`} />
-                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          {/* Principles Section with beautiful cards */}
+          {/* Principles Section */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 2.1, duration: 0.8 }}
-            className="max-w-4xl mx-auto mt-24"
+            transition={{ delay: 1.2, duration: 0.5 }}
+            className="max-w-4xl mx-auto mt-20"
           >
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-white mb-4 tracking-tight bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
-                Our Principles
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-light text-white mb-3 tracking-wide">
+                Principles
               </h2>
-              <p className="text-gray-400 font-light">Guiding every decision we make</p>
+              <div className="w-12 h-px bg-gray-800 mx-auto" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 {
                   title: "Excellence",
-                  description: "Uncompromising quality in every project",
-                  icon: "★",
-                  borderColor: "border-blue-500/30",
-                  gradient: "from-blue-500/20"
+                  description: "Rigorous quality standards",
+                  borderColor: "border-blue-500/20"
                 },
                 {
                   title: "Innovation",
-                  description: "Pushing boundaries with modern solutions",
-                  icon: "⚡",
-                  borderColor: "border-purple-500/30",
-                  gradient: "from-purple-500/20"
+                  description: "Modern, forward-thinking",
+                  borderColor: "border-purple-500/20"
                 },
                 {
                   title: "Collaboration",
-                  description: "Synergistic teamwork for optimal results",
-                  icon: "🤝",
-                  borderColor: "border-green-500/30",
-                  gradient: "from-green-500/20"
+                  description: "Seamless team integration",
+                  borderColor: "border-green-500/20"
                 }
               ].map((principle, index) => (
                 <motion.div
                   key={principle.title}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 2.3 + index * 0.1 }}
-                  className={`relative bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-sm rounded-2xl p-6 text-center ${principle.borderColor} border shadow-xl shadow-black/40 overflow-hidden`}
+                  transition={{ delay: 1.3 + index * 0.08 }}
+                  className={`bg-gray-900/20 backdrop-blur-sm rounded-lg p-5 text-center ${principle.borderColor} border`}
                 >
-                  {/* Elegant background gradient */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${principle.gradient} to-transparent opacity-20`} />
-                  
-                  {/* Icon with glow */}
-                  <div className="relative">
-                    <div className="text-4xl mb-3">{principle.icon}</div>
-                    <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">{principle.title}</h3>
-                    <p className="text-gray-400 text-sm font-light">{principle.description}</p>
-                  </div>
-                  
-                  {/* Subtle corner accent */}
-                  <div className={`absolute bottom-0 right-0 w-12 h-12 bg-gradient-to-tl ${principle.gradient} to-transparent opacity-30 rounded-tl-2xl`} />
+                  <h3 className="text-sm font-medium text-white mb-1">{principle.title}</h3>
+                  <p className="text-gray-500 text-xs">{principle.description}</p>
                 </motion.div>
               ))}
             </div>
@@ -483,36 +437,27 @@ export default function AboutPage() {
         </motion.div>
 
         <style jsx global>{`
-          @keyframes gradient {
-            0%, 100% { 
-              background-position: 0% 50%; 
-            }
-            50% { 
-              background-position: 100% 50%; 
-            }
-          }
-          
-          .animate-gradient {
-            background-size: 300% 300%;
-            animation: gradient 6s ease infinite;
+          body {
+            background: #030303;
+            overflow-x: hidden;
           }
 
-          /* Custom scrollbar */
+          /* Custom scrollbar - minimalist */
           ::-webkit-scrollbar {
-            width: 8px;
+            width: 5px;
           }
 
           ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
+            background: #0a0a0a;
           }
 
           ::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, #3B82F6, #8B5CF6);
-            border-radius: 4px;
+            background: #2a2a2a;
+            border-radius: 0;
           }
 
           ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(to bottom, #2563EB, #7C3AED);
+            background: #3a3a3a;
           }
         `}</style>
       </section>
