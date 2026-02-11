@@ -1,122 +1,136 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useRef, useState } from "react"
+import { motion } from "framer-motion"
+
+type Particle = {
+  x: number
+  y: number
+  size: number
+  speedX: number
+  speedY: number
+}
 
 export default function AboutPage() {
+  const [mounted, setMounted] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [activeMember, setActiveMember] = useState(null)
+  const [activeMember, setActiveMember] = useState<string | null>(null)
   const [scrollProgress, setScrollProgress] = useState(0)
-  const sectionRef = useRef(null)
-  const canvasRef = useRef(null)
-  const particlesRef = useRef([])
-  const animationRef = useRef(null)
+  const [isClient, setIsClient] = useState(false)
+
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const particlesRef = useRef<Particle[]>([])
+  const animationRef = useRef<number | null>(null)
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
+    setMounted(true)
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || !isClient) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.clientX !== undefined && e.clientY !== undefined) {
+        setMousePosition({ x: e.clientX, y: e.clientY })
+      }
     }
 
     const handleScroll = () => {
-      const section = sectionRef.current
-      if (section) {
-        const rect = section.getBoundingClientRect()
-        const viewHeight = window.innerHeight
-        const progress = Math.max(0, Math.min(1, (viewHeight - rect.top) / (rect.height * 0.7)))
-        setScrollProgress(progress)
-      }
+      if (!sectionRef.current) return
+      const rect = sectionRef.current.getBoundingClientRect()
+      const viewHeight = window.innerHeight
+      const progress = Math.max(
+        0,
+        Math.min(1, (viewHeight - rect.top) / (rect.height * 0.7))
+      )
+      setScrollProgress(progress)
     }
 
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("scroll", handleScroll)
 
-    // Initialize particle system
-    const initParticles = () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      
-      const ctx = canvas.getContext('2d')
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    const resizeCanvas = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
-
-      particlesRef.current = Array.from({ length: 200 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 3 + 0.5,
-        speedX: Math.random() * 0.8 - 0.4,
-        speedY: Math.random() * 0.8 - 0.4,
-        color: `hsla(${Math.random() * 60 + 200}, 80%, 60%, ${Math.random() * 0.4})`
-      }))
-
-      const animateParticles = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        
-        // Draw connections between particles
-        particlesRef.current.forEach((particle, i) => {
-          particlesRef.current.slice(i + 1).forEach(otherParticle => {
-            const dx = particle.x - otherParticle.x
-            const dy = particle.y - otherParticle.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
-            
-            if (distance < 150) {
-              ctx.beginPath()
-              ctx.strokeStyle = `rgba(100, 200, 255, ${0.1 * (1 - distance/150)})`
-              ctx.lineWidth = 0.5
-              ctx.moveTo(particle.x, particle.y)
-              ctx.lineTo(otherParticle.x, otherParticle.y)
-              ctx.stroke()
-            }
-          })
-        })
-
-        particlesRef.current.forEach(particle => {
-          particle.x += particle.speedX
-          particle.y += particle.speedY
-          
-          if (particle.x > canvas.width) particle.x = 0
-          if (particle.x < 0) particle.x = canvas.width
-          if (particle.y > canvas.height) particle.y = 0
-          if (particle.y < 0) particle.y = canvas.height
-
-          // Glow effect
-          ctx.beginPath()
-          ctx.arc(particle.x, particle.y, particle.size * 2, 0, Math.PI * 2)
-          ctx.fillStyle = particle.color.replace(')', ', 0.1)').replace('hsla', 'rgba')
-          ctx.fill()
-
-          // Core particle
-          ctx.beginPath()
-          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
-          ctx.fillStyle = particle.color
-          ctx.fill()
-        })
-
-        animationRef.current = requestAnimationFrame(animateParticles)
-      }
-
-      animateParticles()
     }
 
-    initParticles()
+    resizeCanvas()
+    window.addEventListener("resize", resizeCanvas)
 
-    const handleResize = () => {
-      if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth
-        canvasRef.current.height = window.innerHeight
-      }
+    // Initialize particles
+    particlesRef.current = Array.from({ length: 200 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 1,
+      speedX: Math.random() * 0.8 - 0.4,
+      speedY: Math.random() * 0.8 - 0.4,
+    }))
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      // Draw connections
+      particlesRef.current.forEach((p, i) => {
+        particlesRef.current.slice(i + 1).forEach((other) => {
+          const dx = p.x - other.x
+          const dy = p.y - other.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+
+          if (distance < 150) {
+            ctx.beginPath()
+            ctx.moveTo(p.x, p.y)
+            ctx.lineTo(other.x, other.y)
+            ctx.strokeStyle = `rgba(100, 200, 255, ${0.1 * (1 - distance/150)})`
+            ctx.lineWidth = 0.5
+            ctx.stroke()
+          }
+        })
+      })
+
+      // Update and draw particles
+      particlesRef.current.forEach((p) => {
+        p.x += p.speedX
+        p.y += p.speedY
+
+        if (p.x > canvas.width) p.x = 0
+        if (p.x < 0) p.x = canvas.width
+        if (p.y > canvas.height) p.y = 0
+        if (p.y < 0) p.y = canvas.height
+
+        // Glow effect
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2)
+        ctx.fillStyle = "rgba(100, 200, 255, 0.1)"
+        ctx.fill()
+
+        // Core particle
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fillStyle = "rgba(100, 200, 255, 0.4)"
+        ctx.fill()
+      })
+
+      animationRef.current = requestAnimationFrame(animate)
     }
 
-    window.addEventListener('resize', handleResize)
+    animate()
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleResize)
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-      }
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("scroll", handleScroll)
+      window.removeEventListener("resize", resizeCanvas)
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [])
+  }, [mounted, isClient])
+
+  if (!mounted) return null
 
   const teamMembers = [
     {
@@ -135,7 +149,7 @@ export default function AboutPage() {
       description: "Kartikeya is an AI enthusiast with strong expertise in intelligent chatbots and automation-driven systems. He works with Python, SQL, and Generative AI to build data-driven and conversational solutions.\n\nHis technical stack includes Ruby, AWS, and MongoDB, enabling scalable AI-backed applications with real-world impact.",
       color: "#8B5CF6",
       gradient: "from-purple-500 via-pink-500 to-purple-700",
-      skills: ["GenAI", "LLMs", "Python", "Ruby", "Database Management", "AWS"]
+      skills: ["GenAI", "Python", "Ruby", "Database Management", "AWS","Backend Development", "Data Analysis"]
     },
     {
       name: "Ankit Pandey",
@@ -158,8 +172,11 @@ export default function AboutPage() {
   ]
 
   return (
-    <section ref={sectionRef} className="relative bg-black py-40 overflow-hidden min-h-screen">
-      {/* Interactive Canvas Background with Connections */}
+    <section
+      ref={sectionRef}
+      className="relative bg-black py-40 overflow-hidden min-h-screen"
+    >
+      {/* Canvas Background */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
@@ -169,67 +186,69 @@ export default function AboutPage() {
         }}
       />
 
-      {/* Animated Grid with Parallax */}
-      <div 
-        className="absolute inset-0 opacity-5 pointer-events-none"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, rgba(59, 130, 246, 0.2) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(59, 130, 246, 0.2) 1px, transparent 1px)
-          `,
-          backgroundSize: '80px 80px',
-          backgroundPosition: `${mousePosition.x * 0.02}px ${mousePosition.y * 0.02}px`,
-          transform: `translateY(${scrollProgress * -200}px) scale(${1 + scrollProgress * 0.1})`
-        }}
-      />
-
-      {/* Floating Tech Elements with Mouse Interaction */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {['</>', '{ }', '=>', '()', '[]', 'AI', 'API', 'DB', 'λ', 'σ', 'π'].map((icon, i) => (
-          <motion.div
-            key={i}
-            className="absolute text-white/10 text-8xl font-mono"
-            initial={{ 
-              x: Math.random() * window.innerWidth,
-              y: Math.random() * window.innerHeight,
-              rotate: Math.random() * 360
-            }}
-            animate={{
-              y: [null, Math.random() * 100 - 50],
-              rotate: [null, 360],
-              x: [null, Math.random() * 50 - 25]
-            }}
-            transition={{
-              duration: 30 + Math.random() * 30,
-              repeat: Infinity,
-              repeatType: "reverse",
-              delay: Math.random() * 5
-            }}
-            style={{
-              textShadow: `0 0 30px rgba(59, 130, 246, 0.3)`
-            }}
-          >
-            {icon}
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Dynamic Light Effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Animated Grid */}
+      {isClient && (
         <div 
-          className="absolute w-[800px] h-[800px] rounded-full"
+          className="absolute inset-0 opacity-5 pointer-events-none"
           style={{
-            background: `radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)`,
-            left: `${mousePosition.x}px`,
-            top: `${mousePosition.y}px`,
-            transform: 'translate(-50%, -50%)',
-            filter: 'blur(40px)'
+            backgroundImage: `
+              linear-gradient(to right, rgba(59, 130, 246, 0.2) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(59, 130, 246, 0.2) 1px, transparent 1px)
+            `,
+            backgroundSize: '80px 80px',
+            backgroundPosition: `${mousePosition.x * 0.02}px ${mousePosition.y * 0.02}px`,
+            transform: `translateY(${scrollProgress * -200}px) scale(${1 + scrollProgress * 0.1})`
           }}
         />
-      </div>
+      )}
+
+      {/* Floating Tech Icons */}
+      {isClient && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {['</>', '{ }', '=>', '()', '[]', 'AI', 'API', 'DB', 'λ', 'σ', 'π'].map((icon, i) => (
+            <motion.div
+              key={i}
+              className="absolute text-white/10 text-8xl font-mono"
+              initial={{ 
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                rotate: Math.random() * 360
+              }}
+              animate={{
+                y: [null, Math.random() * 100 - 50],
+                rotate: [null, 360],
+                x: [null, Math.random() * 50 - 25]
+              }}
+              transition={{
+                duration: 30 + Math.random() * 30,
+                repeat: Infinity,
+                repeatType: "reverse",
+                delay: Math.random() * 5
+              }}
+            >
+              {icon}
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Dynamic Light Effects */}
+      {isClient && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div 
+            className="absolute w-[800px] h-[800px] rounded-full blur-3xl"
+            style={{
+              background: `radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)`,
+              left: `${mousePosition.x}px`,
+              top: `${mousePosition.y}px`,
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+        </div>
+      )}
 
       <div className="relative mx-auto max-w-6xl px-6 z-10">
-        {/* Hero Section with Glitch Effect */}
+        {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: 80 }}
           animate={{ opacity: 1, y: 0 }}
@@ -237,29 +256,15 @@ export default function AboutPage() {
             duration: 1.2,
             ease: [0.22, 1, 0.36, 1]
           }}
-          className="mx-auto max-w-4xl text-center"
+          className="mx-auto max-w-4xl text-center mb-32"
         >
           <div className="relative inline-block mb-12">
-            {/* Glitch effect layers */}
-            <div className="absolute inset-0 animate-glitch">
-              <span className="absolute inset-0 bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent opacity-70 blur-sm">
-                About Agentra
-              </span>
-              <span 
-                className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent opacity-60"
-                style={{ left: '2px', top: '-2px' }}
-              >
-                About Agentra
-              </span>
-            </div>
-            
             <h1 className="text-6xl md:text-8xl font-bold tracking-tight relative">
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent animate-gradient">
                 About Agentra
               </span>
             </h1>
             
-            {/* Underline animation */}
             <motion.div 
               className="absolute -bottom-4 left-1/4 right-1/4 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent"
               initial={{ scaleX: 0 }}
@@ -268,19 +273,12 @@ export default function AboutPage() {
             />
           </div>
 
-          {/* Hero Text with Stagger Animation */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 1, staggerChildren: 0.2 }}
-            className="space-y-8"
-          >
+          <div className="space-y-8">
             <motion.p 
-              className="text-2xl text-gray-200 leading-relaxed backdrop-blur-lg bg-gradient-to-br from-white/10 to-white/5 p-8 rounded-3xl border border-white/20 shadow-2xl shadow-blue-500/10 hover:shadow-blue-500/20 transition-all duration-500 hover:scale-[1.01] hover:border-blue-500/30"
-              whileHover={{ 
-                scale: 1.01,
-                boxShadow: "0 20px 40px rgba(59, 130, 246, 0.15)"
-              }}
+              className="text-2xl text-gray-200 leading-relaxed backdrop-blur-lg bg-gradient-to-br from-white/10 to-white/5 p-8 rounded-3xl border border-white/20 shadow-2xl shadow-blue-500/10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
             >
               <span className="text-blue-300 font-bold">Agentra</span> is a four-member digital studio focused on building{" "}
               <motion.span 
@@ -328,28 +326,26 @@ export default function AboutPage() {
             </motion.p>
 
             <motion.p 
-              className="text-xl text-gray-300 leading-relaxed backdrop-blur-lg bg-gradient-to-br from-white/5 to-transparent p-8 rounded-3xl border border-white/15 shadow-xl shadow-purple-500/5 hover:shadow-purple-500/15 transition-all duration-500 hover:scale-[1.01] hover:border-purple-500/30"
-              whileHover={{ 
-                scale: 1.01,
-                boxShadow: "0 20px 40px rgba(139, 92, 246, 0.1)"
-              }}
+              className="text-xl text-gray-300 leading-relaxed backdrop-blur-lg bg-gradient-to-br from-white/5 to-transparent p-8 rounded-3xl border border-white/15 shadow-xl shadow-purple-500/5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1 }}
             >
               We work as a small, focused team where each member owns a clear role,
               allowing us to move quickly without sacrificing quality.
             </motion.p>
-          </motion.div>
+          </div>
         </motion.div>
 
-        {/* Process Section with Interactive Timeline */}
+        {/* Process Section */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2, duration: 1 }}
-          className="mx-auto mt-48 max-w-5xl"
+          className="mx-auto mb-32 max-w-5xl"
         >
           <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-blue-500/50 via-purple-500/50 to-cyan-500/50"></div>
+            <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-blue-500/50 via-purple-500/50 to-cyan-500/50" />
             
             <div className="relative z-10">
               <motion.div
@@ -380,9 +376,9 @@ export default function AboutPage() {
                   </p>
                   <ul className="space-y-3">
                     {[
-                      { text: "Usability", desc: "User Experience First", color: "blue" },
-                      { text: "Scalability", desc: "Future-Proof Architecture", color: "purple" },
-                      { text: "Reliability", desc: "Sustainable Solutions", color: "cyan" }
+                      { text: "Usability", desc: "User Experience First", color: "blue-500" },
+                      { text: "Scalability", desc: "Future-Proof Architecture", color: "purple-500" },
+                      { text: "Reliability", desc: "Sustainable Solutions", color: "cyan-500" }
                     ].map((principle, i) => (
                       <motion.li
                         key={principle.text}
@@ -391,7 +387,7 @@ export default function AboutPage() {
                         transition={{ delay: 1.8 + i * 0.2 }}
                         className="flex items-center gap-3 group"
                       >
-                        <div className={`w-3 h-3 rounded-full bg-${principle.color}-500 animate-pulse`}></div>
+                        <div className={`w-3 h-3 rounded-full bg-${principle.color} animate-pulse`} />
                         <span className="text-white font-medium">{principle.text}</span>
                         <span className="text-gray-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                           — {principle.desc}
@@ -405,12 +401,12 @@ export default function AboutPage() {
           </div>
         </motion.div>
 
-        {/* Team Section with Elegant Cards */}
+        {/* Team Section */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 2, duration: 1 }}
-          className="mt-48"
+          className="mt-32"
         >
           <div className="text-center mb-20">
             <motion.h2 
@@ -449,7 +445,6 @@ export default function AboutPage() {
                 onMouseEnter={() => setActiveMember(member.name)}
                 onMouseLeave={() => setActiveMember(null)}
               >
-                {/* Card Glow Effect */}
                 <div 
                   className={`absolute -inset-1 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500`}
                   style={{ 
@@ -457,7 +452,6 @@ export default function AboutPage() {
                   }}
                 />
 
-                {/* Main Card */}
                 <div 
                   className={`relative rounded-2xl backdrop-blur-xl p-8 transition-all duration-500 ${
                     activeMember === member.name 
@@ -471,9 +465,8 @@ export default function AboutPage() {
                       : '0 20px 40px -10px rgba(0,0,0,0.3)'
                   }}
                 >
-                  {/* Avatar with Animated Ring */}
+                  {/* Avatar */}
                   <div className="relative mx-auto w-40 h-40 mb-8">
-                    {/* Outer ring */}
                     <motion.div
                       className="absolute inset-0 rounded-full"
                       animate={{ 
@@ -490,24 +483,6 @@ export default function AboutPage() {
                       }}
                     />
                     
-                    {/* Middle ring */}
-                    <motion.div
-                      className="absolute inset-2 rounded-full"
-                      animate={{ 
-                        rotate: -360,
-                        scale: activeMember === member.name ? [1, 0.95, 1] : 1
-                      }}
-                      transition={{ 
-                        rotate: { duration: 15, repeat: Infinity, ease: "linear" },
-                        scale: { duration: 1.5, repeat: Infinity, delay: 0.5 }
-                      }}
-                      style={{
-                        background: `conic-gradient(from 180deg, ${member.color}30, ${member.color}60, ${member.color}30)`,
-                        padding: '3px'
-                      }}
-                    />
-                    
-                    {/* Inner avatar */}
                     <div className="absolute inset-4 rounded-full bg-black/80 flex items-center justify-center">
                       <motion.div
                         animate={{ 
@@ -525,7 +500,7 @@ export default function AboutPage() {
                     </div>
                   </div>
 
-                  {/* Name with Hover Effect */}
+                  {/* Name */}
                   <motion.h3 
                     className="text-2xl font-bold text-center mb-4"
                     animate={{ 
@@ -558,7 +533,7 @@ export default function AboutPage() {
                     ))}
                   </div>
 
-                  {/* Description with Expand Animation */}
+                  {/* Description */}
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ 
@@ -573,7 +548,7 @@ export default function AboutPage() {
                     </p>
                   </motion.div>
 
-                  {/* Unique Skills on Hover */}
+                  {/* Skills */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ 
@@ -612,26 +587,28 @@ export default function AboutPage() {
         </motion.div>
       </div>
 
-      {/* Mouse Follower with Particle Trail */}
-      <div className="fixed pointer-events-none z-50">
-        <motion.div
-          className="w-8 h-8 rounded-full border-2 border-blue-500/50"
-          style={{
-            x: mousePosition.x - 16,
-            y: mousePosition.y - 16,
-          }}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.7, 0.9, 0.7]
-          }}
-          transition={{
-            scale: { duration: 1, repeat: Infinity },
-            opacity: { duration: 1, repeat: Infinity }
-          }}
-        />
-      </div>
+      {/* Mouse Follower */}
+      {isClient && (
+        <div className="fixed pointer-events-none z-50">
+          <motion.div
+            className="w-8 h-8 rounded-full border-2 border-blue-500/50"
+            style={{
+              x: mousePosition.x - 16,
+              y: mousePosition.y - 16,
+            }}
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.7, 0.9, 0.7]
+            }}
+            transition={{
+              scale: { duration: 1, repeat: Infinity },
+              opacity: { duration: 1, repeat: Infinity }
+            }}
+          />
+        </div>
+      )}
 
-      {/* Scroll Progress Indicator */}
+      {/* Scroll Progress */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-gray-900/50 backdrop-blur-sm z-40">
         <motion.div 
           className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500"
@@ -651,39 +628,9 @@ export default function AboutPage() {
           }
         }
         
-        @keyframes glitch {
-          0% {
-            transform: translate(0);
-          }
-          20% {
-            transform: translate(-2px, 2px);
-          }
-          40% {
-            transform: translate(-2px, -2px);
-          }
-          60% {
-            transform: translate(2px, 2px);
-          }
-          80% {
-            transform: translate(2px, -2px);
-          }
-          100% {
-            transform: translate(0);
-          }
-        }
-        
         .animate-gradient {
           background-size: 300% 300%;
           animation: gradient 6s ease infinite;
-        }
-        
-        .animate-glitch {
-          animation: glitch 0.5s infinite;
-          animation-play-state: paused;
-        }
-        
-        .group:hover .animate-glitch {
-          animation-play-state: running;
         }
         
         body {
