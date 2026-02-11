@@ -349,7 +349,7 @@ export default function AboutPage() {
             </motion.div>
           </motion.div>
 
-          {/* Professional Team Grid - 2 columns */}
+          {/* Professional Team Grid - 2 columns with beautiful cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
             {teamMembers.map((member, index) => (
               <motion.div
@@ -361,51 +361,65 @@ export default function AboutPage() {
                   duration: 0.6,
                   ease: "easeOut"
                 }}
-                className="group"
               >
-                {/* Professional Card with colored border */}
-                <div className={`relative bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-sm rounded-2xl p-8 h-full ${member.borderColor} border`}>
+                {/* Beautiful Card with subtle glow and elegant styling */}
+                <div className={`relative bg-gradient-to-br from-gray-900/50 via-gray-900/30 to-black/50 backdrop-blur-sm rounded-3xl p-8 h-full ${member.borderColor} border shadow-2xl shadow-black/50`}>
                   
-                  {/* Header */}
-                  <div className="mb-6">
-                    <h3 className="text-2xl font-bold text-white mb-2">{member.name}</h3>
-                    <div className="space-y-1">
+                  {/* Subtle inner glow */}
+                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                  
+                  {/* Header with elegant spacing */}
+                  <div className="relative mb-6">
+                    <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">{member.name}</h3>
+                    <div className="space-y-1.5">
                       {member.roles.map((role, i) => (
-                        <p key={i} className="text-gray-300 font-medium text-sm">{role}</p>
+                        <p key={i} className="text-gray-300 font-light text-sm flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full bg-${member.borderColor.split('-')[1]}-500/70`} />
+                          {role}
+                        </p>
                       ))}
                     </div>
                   </div>
 
-                  {/* Description */}
-                  <p className="text-gray-300 leading-relaxed mb-8 font-light whitespace-pre-line">
+                  {/* Elegant divider */}
+                  <div className={`w-12 h-0.5 bg-gradient-to-r from-${member.borderColor.split('-')[1]}-500/50 to-transparent mb-6`} />
+
+                  {/* Description with refined typography */}
+                  <p className="text-gray-300 leading-relaxed mb-8 font-light text-sm tracking-wide whitespace-pre-line">
                     {member.description}
                   </p>
 
-                  {/* Skills */}
+                  {/* Skills with elegant badges */}
                   <div>
-                    <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">
-                      Skills & Expertise
+                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <span>Specializations</span>
+                      <span className={`w-1 h-1 rounded-full bg-${member.borderColor.split('-')[1]}-500/70`} />
                     </h4>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2.5">
                       {member.skills.map((skill, i) => (
                         <motion.span
                           key={skill}
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: 1.7 + index * 0.1 + i * 0.1 }}
-                          className="px-4 py-2 bg-black/40 backdrop-blur-sm text-gray-300 text-sm rounded-lg border border-gray-800"
+                          className={`px-4 py-1.5 bg-black/60 backdrop-blur-sm text-gray-200 text-xs rounded-full border ${member.borderColor} shadow-lg shadow-black/30`}
                         >
                           {skill}
                         </motion.span>
                       ))}
                     </div>
                   </div>
+
+                  {/* Decorative corner accent */}
+                  <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+                    <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-${member.borderColor.split('-')[1]}-500/10 to-transparent rounded-bl-3xl`} />
+                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          {/* Principles Section */}
+          {/* Principles Section with beautiful cards */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -413,8 +427,10 @@ export default function AboutPage() {
             className="max-w-4xl mx-auto mt-24"
           >
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-white mb-4">Our Principles</h2>
-              <p className="text-gray-400">Guiding every decision we make</p>
+              <h2 className="text-4xl font-bold text-white mb-4 tracking-tight bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
+                Our Principles
+              </h2>
+              <p className="text-gray-400 font-light">Guiding every decision we make</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -423,19 +439,22 @@ export default function AboutPage() {
                   title: "Excellence",
                   description: "Uncompromising quality in every project",
                   icon: "★",
-                  borderColor: "border-blue-500/30"
+                  borderColor: "border-blue-500/30",
+                  gradient: "from-blue-500/20"
                 },
                 {
                   title: "Innovation",
                   description: "Pushing boundaries with modern solutions",
                   icon: "⚡",
-                  borderColor: "border-purple-500/30"
+                  borderColor: "border-purple-500/30",
+                  gradient: "from-purple-500/20"
                 },
                 {
                   title: "Collaboration",
                   description: "Synergistic teamwork for optimal results",
                   icon: "🤝",
-                  borderColor: "border-green-500/30"
+                  borderColor: "border-green-500/30",
+                  gradient: "from-green-500/20"
                 }
               ].map((principle, index) => (
                 <motion.div
@@ -443,11 +462,20 @@ export default function AboutPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 2.3 + index * 0.1 }}
-                  className={`bg-gray-900/30 backdrop-blur-sm rounded-xl p-6 text-center ${principle.borderColor} border`}
+                  className={`relative bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-sm rounded-2xl p-6 text-center ${principle.borderColor} border shadow-xl shadow-black/40 overflow-hidden`}
                 >
-                  <div className="text-3xl mb-4">{principle.icon}</div>
-                  <h3 className="text-xl font-semibold text-white mb-2">{principle.title}</h3>
-                  <p className="text-gray-400 text-sm">{principle.description}</p>
+                  {/* Elegant background gradient */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${principle.gradient} to-transparent opacity-20`} />
+                  
+                  {/* Icon with glow */}
+                  <div className="relative">
+                    <div className="text-4xl mb-3">{principle.icon}</div>
+                    <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">{principle.title}</h3>
+                    <p className="text-gray-400 text-sm font-light">{principle.description}</p>
+                  </div>
+                  
+                  {/* Subtle corner accent */}
+                  <div className={`absolute bottom-0 right-0 w-12 h-12 bg-gradient-to-tl ${principle.gradient} to-transparent opacity-30 rounded-tl-2xl`} />
                 </motion.div>
               ))}
             </div>
