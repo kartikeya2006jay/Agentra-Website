@@ -342,6 +342,7 @@ Follow us for updates on Medium and Substack.`,
                   {[
                     { label: 'Privacy Policy', href: '#', onClick: () => setActiveModal('privacy'), icon: '🔒' },
                     { label: 'Terms of Service', href: '#', onClick: () => setActiveModal('terms'), icon: '⚖️' },
+                    { label: '3D Showcase', href: '/showcase.html', onClick: () => window.location.href = '/showcase.html', icon: '✨' },
                     { label: 'Contact', href: '#', onClick: () => setActiveModal('contact'), icon: '📞' },
                     { label: 'Careers', href: '#', onClick: () => setActiveModal('careers'), icon: '💼' },
                     { label: 'Blog', href: '#', onClick: () => setActiveModal('blog'), icon: '✍️' }

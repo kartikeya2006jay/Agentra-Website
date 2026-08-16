@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentra — 3D Interactive Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cyan: #06b6d4;
+      --purple: #8b5cf6;
+      --pink: #ec4899;
+      --blue: #3b82f6;
+      --bg: #030303;
+      --card-bg: rgba(8, 8, 8, 0.65);
+      --border-glow: rgba(59, 130, 246, 0.2);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      perspective: 1500px;
+    }
+
+    /* Neural Mesh Canvas background */
+    #neural-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: all;
+    }
+
+    /* Subtle overlay to enhance contrast */
+    .bg-overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 10%, rgba(3, 3, 3, 0.4) 80%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Main Container */
+    .scene {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 1100px;
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-style: preserve-3d;
+      min-height: 100vh;
+    }
+
+    /* Premium 3D Card */
+    .card {
+      position: relative;
+      width: 100%;
+      background: var(--card-bg);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 3.5rem;
+      transform-style: preserve-3d;
+      transition: transform 0.15s ease-out, border-color 0.5s ease;
+      box-shadow: 0 40px 80px rgba(0, 0, 0, 0.7),
+                  0 0 50px rgba(59, 130, 246, 0.05) inset;
+    }
+
+    .card:hover {
+      border-color: rgba(59, 130, 246, 0.35);
+    }
+
+    /* Card glow effects */
+    .card-glow {
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(139, 92, 246, 0.15), transparent 50%);
+      pointer-events: none;
+      transform: translateZ(-2px);
+      transition: opacity 0.3s ease;
+    }
+
+    /* Content Layering */
+    .content {
+      transform-style: preserve-3d;
+    }
+
+    /* Badges */
+    .badge-wrapper {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      transform: translateZ(50px);
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--cyan);
+      background: rgba(6, 182, 212, 0.05);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      padding: 0.4rem 1.2rem;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.05);
+    }
+
+    .badge.purple {
+      color: var(--purple);
+      background: rgba(139, 92, 246, 0.05);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    /* Title and Subtitle */
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.5rem, 5.5vw, 4.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      transform: translateZ(80px);
+      background: linear-gradient(to right, #ffffff, #94a3b8, #3b82f6);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shine 4s linear infinite;
+    }
+
+    .subtitle {
+      font-size: 1.15rem;
+      color: #94a3b8;
+      margin-bottom: 3.5rem;
+      transform: translateZ(60px);
+      max-width: 750px;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    /* Pillars Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 3.5rem;
+      transform: translateZ(40px);
+    }
+
+    .pillar-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 1.75rem;
+      border-radius: 16px;
+      transform-style: preserve-3d;
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .pillar-box:hover {
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(59, 130, 246, 0.03);
+      transform: translateZ(25px) scale(1.03);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4),
+                  0 0 20px rgba(59, 130, 246, 0.05);
+    }
+
+    .pillar-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pillar-num {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--cyan);
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    .pillar-desc {
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.5;
+      font-weight: 300;
+    }
+
+    .pillar-box:hover .pillar-desc {
+      color: #cbd5e1;
+    }
+
+    /* Core Team Section inside Card */
+    .team-section {
+      transform: translateZ(50px);
+      margin-bottom: 3.5rem;
+    }
+
+    .section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-left: 2px solid var(--purple);
+      padding-left: 0.75rem;
+    }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .team-member {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 1.25rem;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      text-align: left;
+    }
+
+    .team-member:hover {
+      background: rgba(139, 92, 246, 0.03);
+      border-color: rgba(139, 92, 246, 0.25);
+      transform: translateY(-5px);
+    }
+
+    .member-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 0.25rem;
+    }
+
+    .member-role {
+      font-size: 0.75rem;
+      color: var(--purple);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .member-desc {
+      font-size: 0.75rem;
+      color: #475569;
+      line-height: 1.4;
+      font-weight: 300;
+    }
+
+    .team-member:hover .member-desc {
+      color: #94a3b8;
+    }
+
+    /* Actions */
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      transform: translateZ(90px);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.95rem 2.25rem;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #ffffff;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.05) translateY(-2px);
+      box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+      transform: translateY(-2px);
+    }
+
+    /* Bottom Status Bar */
+    .status-bar {
+      margin-top: 3.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #475569;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 1.5rem;
+      transform: translateZ(30px);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #94a3b8;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes shine {
+      to { background-position: 200% center; }
+    }
+
+    /* Responsive styling */
+    @media (max-width: 992px) {
+      .team-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .team-grid {
+        grid-template-columns: 1fr;
+      }
+      .card {
+        padding: 2rem;
+      }
+      .actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+      }
+      .status-bar {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Neural Network Mesh Canvas -->
+  <canvas id="neural-canvas"></canvas>
+  <div class="bg-overlay"></div>
+
+  <div class="scene">
+    <div class="card" id="card">
+      <div class="card-glow"></div>
+      
+      <div class="content">
+        <!-- Badges -->
+        <div class="badge-wrapper">
+          <div class="badge">Next-Gen Showcase</div>
+          <div class="badge purple">60 FPS Render</div>
+        </div>
+        
+        <!-- Main Header -->
+        <h1>Agentra Digital<br>Showcase</h1>
+        
+        <p class="subtitle">
+          An interactive, immersive mapping of the Agentra architecture. Hover over and tilt the interface to explore the technology pillars, core philosophy, and expert developers engineering this platform.
+        </p>
+
+        <!-- Technical Pillars -->
+        <div class="grid">
+          <div class="pillar-box">
+            <div class="pillar-title">
+              <span class="pillar-num">01 /</span> Cinematic Motion
+            </div>
+            <div class="pillar-desc">
+              Smooth fluid dynamics powered by Framer Motion, customized WebGL particle emitters, and CSS variable mesh mapping. Built to captivate.
+            </div>
+          </div>
+          
+          <div class="pillar-box">
+            <div class="pillar-title">
+              <span class="pillar-num">02 /</span> Production Infrastructure
+            </div>
+            <div class="pillar-desc">
+              Next.js 14 App Router integration, Prisma ORM querying, secure environment isolation, and TypeScript schema verification.
+            </div>
+          </div>
+          
+          <div class="pillar-box">
+            <div class="pillar-title">
+              <span class="pillar-num">03 /</span> Responsive Aesthetics
+            </div>
+            <div class="pillar-desc">
+              Adaptive typography, tailored dark-mode HSL gradients, and border-glow micro-animations responsive across all desktop and mobile displays.
+            </div>
+          </div>
+
+          <div class="pillar-box">
+            <div class="pillar-title">
+              <span class="pillar-num">04 /</span> Agentic Automation
+            </div>
+            <div class="pillar-desc">
+              Intelligent lead forms, modular API handlers, automated SMTP notification routing, and clean contact database persistence.
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Hub -->
+        <div class="team-section">
+          <div class="section-title">Core Engineering Team</div>
+          <div class="team-grid">
+            
+            <div class="team-member">
+              <div class="member-name">Varun Patil</div>
+              <div class="member-role">COO / Backend Dev</div>
+              <div class="member-desc">Java systems architect, database design, robust backend controllers, and high-performance API structures.</div>
+            </div>
+            
+            <div class="team-member">
+              <div class="member-name">Kartikeya Yadav</div>
+              <div class="member-role">CDO / Co-Founder</div>
+              <div class="member-desc">Generative AI systems integration, AWS orchestration, MongoDB pipelines, and intelligent NLP chat interfaces.</div>
+            </div>
+            
+            <div class="team-member">
+              <div class="member-name">Ankit Pandey</div>
+              <div class="member-role">Co-Founder / AI Dev</div>
+              <div class="member-desc">Agentic automation workflows, machine learning models, strategic business logic, and custom automation.</div>
+            </div>
+            
+            <div class="team-member">
+              <div class="member-name">Shivendu Kumar</div>
+              <div class="member-role">CTO / tech lead</div>
+              <div class="member-desc">C++ systems integration, full-stack React routing, system architecture design, and technical governance.</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Action Callouts -->
+        <div class="actions">
+          <a href="/" class="btn btn-primary">Enter Main Platform</a>
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" id="code-btn">View Code Repository</a>
+        </div>
+
+        <!-- Custom Status Bar -->
+        <div class="status-bar">
+          <div class="status-indicator">
+            <span class="status-dot"></span>
+            <span>SYSTEM ACTIVE // AGENTRA_v2.0</span>
+          </div>
+          <div>INTERACTION STATE: TILT ACTIVE</div>
+          <div>EST. SPEED: ~60 FPS</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 3D Tilt Effect on Card
+    const card = document.getElementById('card');
+    const scene = document.querySelector('.scene');
+    const glow = document.querySelector('.card-glow');
+
+    scene.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      
+      // Calculate mouse position relative to card (for 3D rotation)
+      const x = e.clientX - rect.left - rect.width/2;
+      const y = e.clientY - rect.top - rect.height/2;
+      
+      // Convert to angles
+      const xAxis = -y / 35; // rotX depends on mouse Y
+      const yAxis = x / 35;  // rotY depends on mouse X
+      
+      card.style.transform = `rotateY(${yAxis}deg) rotateX(${xAxis}deg)`;
+
+      // Update custom properties for the glow effect coordinates
+      const mx = ((e.clientX - rect.left) / rect.width) * 100;
+      const my = ((e.clientY - rect.top) / rect.height) * 100;
+      card.style.setProperty('--mx', `${mx}%`);
+      card.style.setProperty('--my', `${my}%`);
+    });
+
+    scene.addEventListener('mouseenter', () => {
+      card.style.transition = 'none';
+      glow.style.opacity = '1';
+    });
+
+    scene.addEventListener('mouseleave', () => {
+      card.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+      card.style.transform = `rotateY(0deg) rotateX(0deg)`;
+      glow.style.opacity = '0';
+    });
+
+    // Dynamic GitHub Link update if URL has context
+    const currentGithub = window.location.origin;
+    // Set fallback if locally hosting
+    document.getElementById('code-btn').href = "https://github.com/kartikeya2006jay/Agentra-Website";
+
+
+    // Neural Network Mesh Particle background
+    const canvas = document.getElementById('neural-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let particles = [];
+    let mouse = { x: null, y: null, radius: 150 };
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initParticles();
+    }
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.6;
+        this.vy = (Math.random() - 0.5) * 0.6;
+        this.baseSize = Math.random() * 2 + 1;
+        this.size = this.baseSize;
+        // Cyan/blue/purple color palette
+        const colors = [
+          'rgba(6, 182, 212, 0.45)', // cyan
+          'rgba(59, 130, 246, 0.45)', // blue
+          'rgba(139, 92, 246, 0.45)'  // purple
+        ];
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+        ctx.shadowBlur = 0; // reset
+      }
+
+      update() {
+        // Move particle
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Bounce boundaries
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+
+        // Interactive mouse force
+        if (mouse.x !== null && mouse.y !== null) {
+          const dx = mouse.x - this.x;
+          const dy = mouse.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < mouse.radius) {
+            // Push away
+            const force = (mouse.radius - dist) / mouse.radius;
+            this.x -= (dx / dist) * force * 1.5;
+            this.y -= (dy / dist) * force * 1.5;
+            this.size = this.baseSize * (1 + force * 0.8);
+          } else {
+            if (this.size > this.baseSize) {
+              this.size -= 0.05;
+            }
+          }
+        }
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      const density = Math.floor((canvas.width * canvas.height) / 13000);
+      const particleCount = Math.min(density, 120);
+      for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+      }
+    }
+
+    function connect() {
+      const maxDistance = 115;
+      for (let a = 0; a < particles.length; a++) {
+        for (let b = a + 1; b < particles.length; b++) {
+          const dx = particles[a].x - particles[b].x;
+          const dy = particles[a].y - particles[b].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < maxDistance) {
+            const alpha = (1 - (dist / maxDistance)) * 0.16;
+            ctx.strokeStyle = `rgba(59, 130, 246, ${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(particles[a].x, particles[a].y);
+            ctx.lineTo(particles[b].x, particles[b].y);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Update & Draw particles
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+
+      // Draw connections
+      connect();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Event listeners
+    window.addEventListener('resize', resize);
+    
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    window.addEventListener('mouseout', () => {
+      mouse.x = null;
+      mouse.y = null;
+    });
+
+    // Start
+    resize();
+    animate();
+  </script>
+</body>
+</html>
